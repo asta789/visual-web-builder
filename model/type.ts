@@ -1,4 +1,13 @@
 /* =========================================================
+   BREAKPOINT TYPES
+========================================================= */
+
+export type BreakpointId =
+   | "desktop"
+   | "tablet"
+   | "mobile";
+
+/* =========================================================
    NODE TYPES
 ========================================================= */
 
@@ -11,10 +20,17 @@ export type NodeType =
    | "image";
 
 /* =========================================================
-   STYLE PROPERTIES
+   BASE STYLE PROPERTIES
 ========================================================= */
 
-export interface StyleProperties {
+/*
+ * These are the existing style properties used by the
+ * current editor.
+ *
+ * They remain the base/default styles for a node.
+ */
+
+export interface BaseStyleProperties {
    /* Size */
    width?: string;
    height?: string;
@@ -30,6 +46,7 @@ export interface StyleProperties {
    | "absolute"
    | "fixed"
    | "sticky";
+
    top?: string;
    right?: string;
    bottom?: string;
@@ -95,6 +112,71 @@ export interface StyleProperties {
    /* Accessibility */
    alt?: string;
 }
+
+/* =========================================================
+   RESPONSIVE STYLE OVERRIDES
+========================================================= */
+
+/*
+ * A responsive override contains only the properties that
+ * are explicitly changed at that breakpoint.
+ *
+ * Example:
+ *
+ * responsive: {
+ *     mobile: {
+ *         fontSize: "18px",
+ *         paddingLeft: "16px"
+ *     }
+ * }
+ *
+ * Properties not present here are NOT duplicated.
+ *
+ * Inheritance / fallback resolution will be implemented
+ * in the next responsive phase.
+ */
+
+export type ResponsiveStyleOverrides =
+   Partial<BaseStyleProperties>;
+
+/* =========================================================
+   RESPONSIVE STYLES
+========================================================= */
+
+export interface ResponsiveStyles {
+   desktop?: ResponsiveStyleOverrides;
+
+   tablet?: ResponsiveStyleOverrides;
+
+   mobile?: ResponsiveStyleOverrides;
+}
+
+/* =========================================================
+   STYLE PROPERTIES
+========================================================= */
+
+/*
+ * Existing styles remain directly available.
+ *
+ * This is important because the current Canvas,
+ * RightPanel, EditorOverlay and other systems already
+ * read properties such as:
+ *
+ * node.styles?.width
+ * node.styles?.fontSize
+ * node.styles?.color
+ *
+ * We are NOT breaking that structure.
+ *
+ * Responsive values are stored separately under
+ * node.styles.responsive.
+ */
+
+export interface StyleProperties
+   extends BaseStyleProperties {
+   responsive?: ResponsiveStyles;
+}
+
 /* =========================================================
    PROJECT NODE
 ========================================================= */
@@ -136,9 +218,15 @@ export interface Project {
 
    name: string;
 
-   nodes: Record<string, ProjectNode>;
+   nodes: Record<
+      string,
+      ProjectNode
+   >;
 
-   pages: Record<string, ProjectPage>;
+   pages: Record<
+      string,
+      ProjectPage
+   >;
 
    activePageId: string;
 }

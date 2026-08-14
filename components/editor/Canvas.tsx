@@ -10,6 +10,19 @@ import { useEditorStore } from "@/store/editorStore";
 import EditorOverlay from "./EditorOverlay";
 
 /* =========================================================
+   CANVAS PROPS
+========================================================= */
+
+interface CanvasProps {
+    viewport:
+    | "desktop"
+    | "tablet"
+    | "mobile";
+
+    viewportWidth: number;
+}
+
+/* =========================================================
    RENDER NODE
 ========================================================= */
 
@@ -276,7 +289,10 @@ function RenderNode({
    CANVAS
 ========================================================= */
 
-export default function Canvas() {
+export default function Canvas({
+    viewport,
+    viewportWidth,
+}: CanvasProps) {
     const project = useEditorStore(
         (state) => state.project
     );
@@ -329,26 +345,31 @@ export default function Canvas() {
                 selectNode(null)
             }
         >
+            {/* =================================================
+                VIEWPORT
+            ================================================= */}
+
             <div
                 className="
                     relative
                     min-h-[900px]
-                    w-[1000px]
+                    shrink-0
                     bg-white
                     shadow-xl
                 "
-                onClick={(event) =>
-                    event.stopPropagation()
-                }
+                style={{
+                    width: `${viewportWidth}px`,
+                }}
+                data-viewport={viewport}
             >
                 <RenderNode
                     nodeId={
                         page.rootNodeId
                     }
                 />
-            </div>
 
-            <EditorOverlay />
+                <EditorOverlay />
+            </div>
         </div>
     );
 }

@@ -1,12 +1,54 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 import LeftPanel from "./LeftPanel";
 import Canvas from "./Canvas";
 import RightPanel from "./RightPanel";
 
 import { useEditorStore } from "@/store/editorStore";
+
+/* =========================================================
+   VIEWPORT TYPES
+========================================================= */
+
+export type ViewportType =
+    | "desktop"
+    | "tablet"
+    | "mobile";
+
+export interface ViewportConfig {
+    label: string;
+    width: number;
+}
+
+/* =========================================================
+   VIEWPORT CONFIGURATION
+========================================================= */
+
+export const VIEWPORTS: Record<
+    ViewportType,
+    ViewportConfig
+> = {
+    desktop: {
+        label: "Desktop",
+        width: 1200,
+    },
+
+    tablet: {
+        label: "Tablet",
+        width: 768,
+    },
+
+    mobile: {
+        label: "Mobile",
+        width: 390,
+    },
+};
+
+/* =========================================================
+   EDITOR
+========================================================= */
 
 export default function Editor() {
     const selectedNodeId =
@@ -37,6 +79,23 @@ export default function Editor() {
         useEditorStore(
             (state) =>
                 state.redo
+        );
+
+    /*
+     * =========================================================
+     * VIEWPORT
+     *
+     * This is editor UI state.
+     *
+     * It is intentionally NOT stored inside the project,
+     * therefore changing viewport does not create an
+     * undo/redo history entry.
+     * =========================================================
+     */
+
+    const [viewport, setViewport] =
+        useState<ViewportType>(
+            "desktop"
         );
 
     /*
@@ -158,7 +217,7 @@ export default function Editor() {
 
             /*
              * -------------------------------------------------
-             * The following operations require selection.
+             * Selection required
              * -------------------------------------------------
              */
 
@@ -326,6 +385,81 @@ export default function Editor() {
                         <div className="mx-1 h-6 w-px bg-gray-200" />
 
                         {/* =========================================
+                            VIEWPORT SWITCHER
+                        ========================================= */}
+
+                        <div className="flex items-center rounded-md border bg-gray-50 p-0.5">
+                            {(
+                                Object.keys(
+                                    VIEWPORTS
+                                ) as ViewportType[]
+                            ).map(
+                                (
+                                    viewportType
+                                ) => {
+                                    const config =
+                                        VIEWPORTS[
+                                        viewportType
+                                        ];
+
+                                    const isActive =
+                                        viewport ===
+                                        viewportType;
+
+                                    return (
+                                        <button
+                                            key={
+                                                viewportType
+                                            }
+                                            type="button"
+                                            onClick={() =>
+                                                setViewport(
+                                                    viewportType
+                                                )
+                                            }
+                                            title={`${config.label} (${config.width}px)`}
+                                            className={`
+                                                rounded
+                                                px-3
+                                                py-1.5
+                                                text-xs
+                                                font-medium
+                                                transition
+                                                ${isActive
+                                                    ? "bg-white text-gray-900 shadow-sm"
+                                                    : "text-gray-500 hover:text-gray-900"
+                                                }
+                                            `}
+                                        >
+                                            {
+                                                config.label
+                                            }
+                                        </button>
+                                    );
+                                }
+                            )}
+                        </div>
+
+                        {/* =========================================
+                            VIEWPORT WIDTH
+                        ========================================= */}
+
+                        <div className="hidden text-xs text-gray-400 lg:block">
+                            {
+                                VIEWPORTS[
+                                    viewport
+                                ].width
+                            }
+                            px
+                        </div>
+
+                        {/* =========================================
+                            SEPARATOR
+                        ========================================= */}
+
+                        <div className="mx-1 h-6 w-px bg-gray-200" />
+
+                        {/* =========================================
                             PREVIEW
                         ========================================= */}
 
@@ -368,7 +502,14 @@ export default function Editor() {
                     CANVAS
                 ================================================= */}
 
-                <Canvas />
+                <Canvas
+                    viewport={viewport}
+                    viewportWidth={
+                        VIEWPORTS[
+                            viewport
+                        ].width
+                    }
+                />
             </main>
 
             {/* =================================================
