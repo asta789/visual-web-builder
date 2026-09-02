@@ -7,6 +7,8 @@ export const defaultProject: Project = {
 
     activePageId: "page-home",
 
+    assets: {},
+
     pages: {
         "page-home": {
             id: "page-home",

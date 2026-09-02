@@ -142,9 +142,8 @@ function LayerItem({
         }
 
         /*
-         * Structural nodes can still
-         * receive children exactly like
-         * before.
+         * Structural nodes can receive
+         * children.
          */
         const canReceiveChildren =
             node.type === "page" ||
@@ -152,11 +151,8 @@ function LayerItem({
             node.type === "container";
 
         /*
-         * For structural nodes we keep
-         * the existing behavior:
-         *
-         * dropping anywhere on the node
-         * means "inside".
+         * Dropping on a structural node
+         * means moving inside it.
          */
         if (canReceiveChildren) {
             setDropPosition(null);
@@ -167,7 +163,7 @@ function LayerItem({
          * Text / Button / Image:
          *
          * Determine whether the user is
-         * dropping above or below the node.
+         * dropping above or below.
          */
         const rect =
             event.currentTarget.getBoundingClientRect();
@@ -231,9 +227,8 @@ function LayerItem({
         /* =================================================
            CASE 1
            DROP ON STRUCTURAL NODE
-           
-           Existing behavior:
-           move inside node.
+
+           Move inside node.
         ================================================= */
 
         const canReceiveChildren =
@@ -256,7 +251,7 @@ function LayerItem({
         /* =================================================
            CASE 2
            DROP ON TEXT / BUTTON / IMAGE
-           
+
            Reorder as sibling.
         ================================================= */
 
@@ -281,11 +276,9 @@ function LayerItem({
             return;
         }
 
-        const siblings =
-            [
-                ...(parent.children ??
-                    []),
-            ];
+        const siblings = [
+            ...(parent.children ?? []),
+        ];
 
         const targetIndex =
             siblings.indexOf(
@@ -321,7 +314,7 @@ function LayerItem({
             /*
              * If dragged node is already
              * before target, removing it
-             * shifts the target left.
+             * shifts target left.
              */
             if (
                 draggedIndex !== -1 &&
@@ -606,27 +599,6 @@ function getNodeIcon(
 }
 
 /* =========================================================
-   FIND ROOT NODE
-========================================================= */
-
-function getRootNode(
-    nodes: Record<
-        string,
-        ProjectNode
-    >
-): ProjectNode | null {
-    for (const node of Object.values(
-        nodes
-    )) {
-        if (!node.parentId) {
-            return node;
-        }
-    }
-
-    return null;
-}
-
-/* =========================================================
    LAYERS PANEL
 ========================================================= */
 
@@ -637,12 +609,30 @@ export default function LayersPanel() {
                 state.project
         );
 
-    const rootNode =
-        getRootNode(
-            project.nodes
-        );
+    /*
+     * =====================================================
+     * ACTIVE PAGE
+     *
+     * IMPORTANT:
+     * Do NOT search all project.nodes for a root node.
+     *
+     * Each page owns its own rootNodeId.
+     * =====================================================
+     */
 
-    if (!rootNode) {
+    const activePage =
+        project.pages[
+        project.activePageId
+        ];
+
+    const rootNode =
+        activePage
+            ? project.nodes[
+            activePage.rootNodeId
+            ]
+            : undefined;
+
+    if (!activePage || !rootNode) {
         return (
             <aside
                 className="

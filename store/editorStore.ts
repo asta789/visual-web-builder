@@ -7,6 +7,7 @@ import {
     BreakpointId,
     NodeType,
     Project,
+    ProjectAsset,
     ProjectNode,
 } from "@/model/type";
 
@@ -33,21 +34,27 @@ interface EditorState {
     | string
     | null;
 
-    /*
-     * =====================================================
-     * HISTORY
-     * =====================================================
-     */
+    /* =====================================================
+       ACTIVE RESPONSIVE BREAKPOINT
+    ===================================================== */
+
+    activeBreakpointId: BreakpointId;
+
+    setActiveBreakpoint: (
+        breakpointId: BreakpointId
+    ) => void;
+
+    /* =====================================================
+       HISTORY
+    ===================================================== */
 
     past: EditorSnapshot[];
 
     future: EditorSnapshot[];
 
-    /*
-     * =====================================================
-     * HISTORY TRANSACTION
-     * =====================================================
-     */
+    /* =====================================================
+       HISTORY TRANSACTION
+    ===================================================== */
 
     transactionSnapshot:
     | EditorSnapshot
@@ -57,21 +64,42 @@ interface EditorState {
 
     transactionChanged: boolean;
 
-    /*
-     * =====================================================
-     * SELECTION
-     * =====================================================
-     */
+    /* =====================================================
+       SELECTION
+    ===================================================== */
 
     selectNode: (
         nodeId: string | null
     ) => void;
 
-    /*
-     * =====================================================
-     * NODE OPERATIONS
-     * =====================================================
-     */
+    /* =====================================================
+       PAGE OPERATIONS
+    ===================================================== */
+
+    createPage: (
+        name?: string
+    ) => void;
+
+    deletePage: (
+        pageId: string
+    ) => void;
+
+    renamePage: (
+        pageId: string,
+        name: string
+    ) => void;
+
+    duplicatePage: (
+        pageId: string
+    ) => void;
+
+    setActivePage: (
+        pageId: string
+    ) => void;
+
+    /* =====================================================
+       NODE OPERATIONS
+    ===================================================== */
 
     addNode: (
         type: NodeType,
@@ -88,16 +116,18 @@ interface EditorState {
         styles: Record<string, string>
     ) => void;
 
-    /*
-     * =====================================================
-     * RESPONSIVE STYLE OPERATIONS
-     * =====================================================
-     *
-     * These modify ONLY the selected breakpoint's
-     * responsive override object.
-     *
-     * They do NOT modify base styles.
-     */
+    /* =====================================================
+       IMAGE ASSET
+    ===================================================== */
+
+    setImageAsset: (
+        nodeId: string,
+        asset: ProjectAsset
+    ) => void;
+
+    /* =====================================================
+       RESPONSIVE STYLE OPERATIONS
+    ===================================================== */
 
     updateResponsiveNodeStyles: (
         nodeId: string,
@@ -119,21 +149,17 @@ interface EditorState {
         newIndex?: number
     ) => void;
 
-    /*
-     * =====================================================
-     * HISTORY
-     * =====================================================
-     */
+    /* =====================================================
+       HISTORY
+    ===================================================== */
 
     undo: () => void;
 
     redo: () => void;
 
-    /*
-     * =====================================================
-     * HISTORY TRANSACTIONS
-     * =====================================================
-     */
+    /* =====================================================
+       HISTORY TRANSACTIONS
+    ===================================================== */
 
     beginHistoryTransaction: () => void;
 
@@ -157,7 +183,6 @@ function createSnapshot(
 ): EditorSnapshot {
     return {
         project: state.project,
-
         selectedNodeId:
             state.selectedNodeId,
     };
@@ -201,7 +226,9 @@ function createNode(
     index: number
 ): ProjectNode {
     const id =
-        `${type}-${Date.now()}-${index}`;
+        `${type}-${Date.now()}-${index}-${Math.random()
+            .toString(36)
+            .slice(2, 7)}`;
 
     const baseNode: ProjectNode = {
         id,
@@ -226,13 +253,9 @@ function createNode(
 
                 styles: {
                     paddingTop: "60px",
-
                     paddingRight: "40px",
-
                     paddingBottom: "60px",
-
                     paddingLeft: "40px",
-
                     backgroundColor:
                         "#ffffff",
                 },
@@ -248,12 +271,38 @@ function createNode(
 
                 styles: {
                     paddingTop: "20px",
-
                     paddingRight: "20px",
-
                     paddingBottom: "20px",
-
                     paddingLeft: "20px",
+                },
+            };
+
+        case "navbar":
+            return {
+                ...baseNode,
+
+                name: "Navbar",
+
+                children: [],
+
+                styles: {
+                    width: "100%",
+                    minHeight: "64px",
+
+                    display: "flex",
+                    alignItems: "center",
+
+                    paddingTop: "12px",
+                    paddingRight: "24px",
+                    paddingBottom: "12px",
+                    paddingLeft: "24px",
+
+                    backgroundColor:
+                        "#ffffff",
+
+                    borderWidth: "1px",
+                    borderStyle: "solid",
+                    borderColor: "#e5e7eb",
                 },
             };
 
@@ -267,7 +316,6 @@ function createNode(
 
                 styles: {
                     fontSize: "20px",
-
                     color: "#111111",
                 },
             };
@@ -287,11 +335,8 @@ function createNode(
                     color: "#ffffff",
 
                     paddingTop: "12px",
-
                     paddingRight: "24px",
-
                     paddingBottom: "12px",
-
                     paddingLeft: "24px",
 
                     borderRadius: "8px",
@@ -319,6 +364,25 @@ function createNode(
         default:
             return baseNode;
     }
+}
+
+/* =========================================================
+   PAGE ROOT CREATION
+========================================================= */
+
+function createPageRoot(
+    rootNodeId: string,
+    pageName: string
+): ProjectNode {
+    return {
+        id: rootNodeId,
+
+        type: "page",
+
+        name: pageName,
+
+        children: [],
+    };
 }
 
 /* =========================================================
@@ -372,8 +436,94 @@ function canContainChildren(
     return (
         node.type === "page" ||
         node.type === "section" ||
-        node.type === "container"
+        node.type === "container" ||
+        node.type === "navbar"
     );
+}
+
+/* =========================================================
+   UNIQUE PAGE ID
+========================================================= */
+
+function createUniquePageId(
+    pages: Project["pages"]
+): string {
+    let counter = 1;
+
+    let id =
+        `page-${Date.now()}`;
+
+    while (pages[id]) {
+        id =
+            `page-${Date.now()}-${counter}`;
+
+        counter++;
+    }
+
+    return id;
+}
+
+/* =========================================================
+   UNIQUE NODE ID
+========================================================= */
+
+function createUniqueNodeId(
+    nodes: Project["nodes"],
+    prefix: string
+): string {
+    let id =
+        `${prefix}-${Date.now()}-${Math.random()
+            .toString(36)
+            .slice(2, 8)}`;
+
+    while (nodes[id]) {
+        id =
+            `${prefix}-${Date.now()}-${Math.random()
+                .toString(36)
+                .slice(2, 8)}`;
+    }
+
+    return id;
+}
+
+/* =========================================================
+   UNIQUE PAGE NAME
+========================================================= */
+
+function createUniquePageName(
+    pages: Project["pages"],
+    requestedName: string
+): string {
+    const cleanName =
+        requestedName.trim() ||
+        "New Page";
+
+    const existingNames =
+        Object.values(pages).map(
+            (page) =>
+                page.name.toLowerCase()
+        );
+
+    if (
+        !existingNames.includes(
+            cleanName.toLowerCase()
+        )
+    ) {
+        return cleanName;
+    }
+
+    let counter = 2;
+
+    while (
+        existingNames.includes(
+            `${cleanName} ${counter}`
+                .toLowerCase()
+        )
+    ) {
+        counter++;
+    }
+
+    return `${cleanName} ${counter}`;
 }
 
 /* =========================================================
@@ -383,6 +533,7 @@ function canContainChildren(
 export const useEditorStore =
     create<EditorState>(
         (set) => ({
+
             /* =================================================
                INITIAL STATE
             ================================================= */
@@ -392,6 +543,9 @@ export const useEditorStore =
 
             selectedNodeId:
                 null,
+
+            activeBreakpointId:
+                "desktop",
 
             past: [],
 
@@ -419,12 +573,747 @@ export const useEditorStore =
                 }),
 
             /* =================================================
+               ACTIVE BREAKPOINT
+            ================================================= */
+
+            setActiveBreakpoint: (
+                breakpointId
+            ) =>
+                set((state) => {
+
+                    if (
+                        state.activeBreakpointId ===
+                        breakpointId
+                    ) {
+                        return state;
+                    }
+
+                    /*
+                     * Active breakpoint is editor-only state.
+                     *
+                     * It intentionally does not:
+                     * - modify the Project Model
+                     * - create an undo history entry
+                     * - modify redo history
+                     * - modify transaction state
+                     */
+                    return {
+                        activeBreakpointId:
+                            breakpointId,
+                    };
+                }),
+
+            /* =================================================
+               CREATE PAGE
+            ================================================= */
+
+            createPage: (
+                requestedName
+            ) =>
+                set((state) => {
+
+                    const pageId =
+                        createUniquePageId(
+                            state.project
+                                .pages
+                        );
+
+                    const pageName =
+                        createUniquePageName(
+                            state.project
+                                .pages,
+
+                            requestedName ??
+                            "New Page"
+                        );
+
+                    const rootNodeId =
+                        createUniqueNodeId(
+                            state.project
+                                .nodes,
+
+                            `${pageId}-root`
+                        );
+
+                    const rootNode =
+                        createPageRoot(
+                            rootNodeId,
+                            pageName
+                        );
+
+                    /* -----------------------------------------
+                       TRANSACTION MODE
+                    ----------------------------------------- */
+
+                    if (
+                        state.transactionActive
+                    ) {
+                        return {
+                            project: {
+                                ...state.project,
+
+                                pages: {
+                                    ...state
+                                        .project
+                                        .pages,
+
+                                    [pageId]: {
+                                        id:
+                                            pageId,
+
+                                        name:
+                                            pageName,
+
+                                        rootNodeId:
+                                            rootNodeId,
+                                    },
+                                },
+
+                                nodes: {
+                                    ...state
+                                        .project
+                                        .nodes,
+
+                                    [rootNodeId]:
+                                        rootNode,
+                                },
+
+                                activePageId:
+                                    pageId,
+                            },
+
+                            selectedNodeId:
+                                null,
+
+                            transactionChanged:
+                                true,
+                        };
+                    }
+
+                    /* -----------------------------------------
+                       NORMAL HISTORY OPERATION
+                    ----------------------------------------- */
+
+                    const past =
+                        pushHistory(
+                            state
+                        );
+
+                    return {
+                        project: {
+                            ...state.project,
+
+                            pages: {
+                                ...state
+                                    .project
+                                    .pages,
+
+                                [pageId]: {
+                                    id:
+                                        pageId,
+
+                                    name:
+                                        pageName,
+
+                                    rootNodeId:
+                                        rootNodeId,
+                                },
+                            },
+
+                            nodes: {
+                                ...state
+                                    .project
+                                    .nodes,
+
+                                [rootNodeId]:
+                                    rootNode,
+                            },
+
+                            activePageId:
+                                pageId,
+                        },
+
+                        selectedNodeId:
+                            null,
+
+                        past,
+
+                        future: [],
+                    };
+                }),
+
+            /* =================================================
+               DELETE PAGE
+            ================================================= */
+
+            deletePage: (
+                pageId
+            ) =>
+                set((state) => {
+
+                    const page =
+                        state.project
+                            .pages[
+                        pageId
+                        ];
+
+                    if (!page) {
+                        return state;
+                    }
+
+                    const pageIds =
+                        Object.keys(
+                            state.project
+                                .pages
+                        );
+
+                    /*
+                     * Never allow zero pages.
+                     */
+                    if (
+                        pageIds.length <= 1
+                    ) {
+                        console.warn(
+                            "Cannot delete the last page."
+                        );
+
+                        return state;
+                    }
+
+                    const newPages = {
+                        ...state.project
+                            .pages,
+                    };
+
+                    delete newPages[
+                        pageId
+                    ];
+
+                    /*
+                     * Remove entire page
+                     * node tree.
+                     */
+                    const idsToDelete = [
+                        page.rootNodeId,
+
+                        ...collectDescendants(
+                            state.project
+                                .nodes,
+
+                            page.rootNodeId
+                        ),
+                    ];
+
+                    const newNodes = {
+                        ...state.project
+                            .nodes,
+                    };
+
+                    for (
+                        const id of
+                        idsToDelete
+                    ) {
+                        delete newNodes[
+                            id
+                        ];
+                    }
+
+                    let nextActivePageId =
+                        state.project
+                            .activePageId;
+
+                    if (
+                        nextActivePageId ===
+                        pageId
+                    ) {
+                        const remainingPageId =
+                            pageIds.find(
+                                (
+                                    id
+                                ) =>
+                                    id !==
+                                    pageId
+                            );
+
+                        if (
+                            !remainingPageId
+                        ) {
+                            return state;
+                        }
+
+                        nextActivePageId =
+                            remainingPageId;
+                    }
+
+                    /*
+                     * Transaction mode.
+                     */
+                    if (
+                        state.transactionActive
+                    ) {
+                        return {
+                            project: {
+                                ...state.project,
+
+                                pages:
+                                    newPages,
+
+                                nodes:
+                                    newNodes,
+
+                                activePageId:
+                                    nextActivePageId,
+                            },
+
+                            selectedNodeId:
+                                null,
+
+                            transactionChanged:
+                                true,
+                        };
+                    }
+
+                    const past =
+                        pushHistory(
+                            state
+                        );
+
+                    return {
+                        project: {
+                            ...state.project,
+
+                            pages:
+                                newPages,
+
+                            nodes:
+                                newNodes,
+
+                            activePageId:
+                                nextActivePageId,
+                        },
+
+                        selectedNodeId:
+                            null,
+
+                        past,
+
+                        future: [],
+                    };
+                }),
+
+            /* =================================================
+               RENAME PAGE
+            ================================================= */
+
+            renamePage: (
+                pageId,
+                name
+            ) =>
+                set((state) => {
+
+                    const page =
+                        state.project
+                            .pages[
+                        pageId
+                        ];
+
+                    if (!page) {
+                        return state;
+                    }
+
+                    const trimmedName =
+                        name.trim();
+
+                    if (
+                        !trimmedName
+                    ) {
+                        return state;
+                    }
+
+                    if (
+                        page.name ===
+                        trimmedName
+                    ) {
+                        return state;
+                    }
+
+                    const duplicate =
+                        Object.values(
+                            state.project
+                                .pages
+                        ).some(
+                            (
+                                existingPage
+                            ) =>
+                                existingPage
+                                    .id !==
+                                pageId &&
+                                existingPage
+                                    .name
+                                    .toLowerCase() ===
+                                trimmedName
+                                    .toLowerCase()
+                        );
+
+                    if (duplicate) {
+                        console.warn(
+                            "A page with this name already exists."
+                        );
+
+                        return state;
+                    }
+
+                    const rootNode =
+                        state.project
+                            .nodes[
+                        page.rootNodeId
+                        ];
+
+                    if (!rootNode) {
+                        return state;
+                    }
+
+                    const updatedProject: Project = {
+                        ...state.project,
+
+                        pages: {
+                            ...state
+                                .project
+                                .pages,
+
+                            [pageId]: {
+                                ...page,
+
+                                name:
+                                    trimmedName,
+                            },
+                        },
+
+                        nodes: {
+                            ...state
+                                .project
+                                .nodes,
+
+                            [page.rootNodeId]:
+                            {
+                                ...rootNode,
+
+                                name:
+                                    trimmedName,
+                            },
+                        },
+                    };
+
+                    if (
+                        state.transactionActive
+                    ) {
+                        return {
+                            project:
+                                updatedProject,
+
+                            transactionChanged:
+                                true,
+                        };
+                    }
+
+                    const past =
+                        pushHistory(
+                            state
+                        );
+
+                    return {
+                        project:
+                            updatedProject,
+
+                        past,
+
+                        future: [],
+                    };
+                }),
+
+            /* =================================================
+               DUPLICATE PAGE
+            ================================================= */
+
+            duplicatePage: (
+                pageId
+            ) =>
+                set((state) => {
+
+                    const page =
+                        state.project
+                            .pages[
+                        pageId
+                        ];
+
+                    if (!page) {
+                        return state;
+                    }
+
+                    const sourceRoot =
+                        state.project
+                            .nodes[
+                        page.rootNodeId
+                        ];
+
+                    if (!sourceRoot) {
+                        return state;
+                    }
+
+                    const newPageId =
+                        createUniquePageId(
+                            state.project
+                                .pages
+                        );
+
+                    const newPageName =
+                        createUniquePageName(
+                            state.project
+                                .pages,
+
+                            `${page.name} Copy`
+                        );
+
+                    const newRootId =
+                        createUniqueNodeId(
+                            state.project
+                                .nodes,
+
+                            `${newPageId}-root`
+                        );
+
+                    const newNodes = {
+                        ...state.project
+                            .nodes,
+                    };
+
+                    const nodeIdMap =
+                        new Map<
+                            string,
+                            string
+                        >();
+
+                    const subtreeIds = [
+                        page.rootNodeId,
+
+                        ...collectDescendants(
+                            state.project
+                                .nodes,
+
+                            page.rootNodeId
+                        ),
+                    ];
+
+                    /*
+                     * Create ID mapping.
+                     */
+                    for (
+                        const oldId of
+                        subtreeIds
+                    ) {
+
+                        const newId =
+                            oldId ===
+                                page.rootNodeId
+                                ? newRootId
+                                : createUniqueNodeId(
+                                    newNodes,
+                                    oldId
+                                );
+
+                        nodeIdMap.set(
+                            oldId,
+                            newId
+                        );
+                    }
+
+                    /*
+                     * Copy every node.
+                     */
+                    for (
+                        const oldId of
+                        subtreeIds
+                    ) {
+
+                        const oldNode =
+                            state.project
+                                .nodes[
+                            oldId
+                            ];
+
+                        if (!oldNode) {
+                            continue;
+                        }
+
+                        const newId =
+                            nodeIdMap.get(
+                                oldId
+                            );
+
+                        if (!newId) {
+                            continue;
+                        }
+
+                        const newParentId =
+                            oldNode.parentId
+                                ? nodeIdMap.get(
+                                    oldNode
+                                        .parentId
+                                )
+                                : undefined;
+
+                        const newChildren =
+                            oldNode.children
+                                ?.map(
+                                    (
+                                        childId
+                                    ) =>
+                                        nodeIdMap.get(
+                                            childId
+                                        )
+                                )
+                                .filter(
+                                    (
+                                        childId
+                                    ): childId is string =>
+                                        Boolean(
+                                            childId
+                                        )
+                                );
+
+                        newNodes[newId] = {
+                            ...oldNode,
+
+                            id:
+                                newId,
+
+                            name:
+                                oldId ===
+                                    page.rootNodeId
+                                    ? newPageName
+                                    : oldNode.name,
+
+                            parentId:
+                                newParentId,
+
+                            children:
+                                newChildren,
+                        };
+                    }
+
+                    const newProject: Project = {
+                        ...state.project,
+
+                        pages: {
+                            ...state
+                                .project
+                                .pages,
+
+                            [newPageId]: {
+                                id:
+                                    newPageId,
+
+                                name:
+                                    newPageName,
+
+                                rootNodeId:
+                                    newRootId,
+                            },
+                        },
+
+                        nodes:
+                            newNodes,
+
+                        activePageId:
+                            newPageId,
+                    };
+
+                    if (
+                        state.transactionActive
+                    ) {
+                        return {
+                            project:
+                                newProject,
+
+                            selectedNodeId:
+                                null,
+
+                            transactionChanged:
+                                true,
+                        };
+                    }
+
+                    const past =
+                        pushHistory(
+                            state
+                        );
+
+                    return {
+                        project:
+                            newProject,
+
+                        selectedNodeId:
+                            null,
+
+                        past,
+
+                        future: [],
+                    };
+                }),
+
+            /* =================================================
+               SET ACTIVE PAGE
+            ================================================= */
+
+            setActivePage: (
+                pageId
+            ) =>
+                set((state) => {
+
+                    const page =
+                        state.project
+                            .pages[
+                        pageId
+                        ];
+
+                    if (!page) {
+                        console.warn(
+                            "Cannot activate unknown page:",
+                            pageId
+                        );
+
+                        return state;
+                    }
+
+                    if (
+                        state.project
+                            .activePageId ===
+                        pageId
+                    ) {
+                        return state;
+                    }
+
+                    return {
+                        project: {
+                            ...state.project,
+
+                            activePageId:
+                                pageId,
+                        },
+
+                        selectedNodeId:
+                            null,
+                    };
+                }),
+
+            /* =================================================
                BEGIN HISTORY TRANSACTION
             ================================================= */
 
             beginHistoryTransaction:
                 () =>
                     set((state) => {
+
                         if (
                             state.transactionActive
                         ) {
@@ -452,6 +1341,7 @@ export const useEditorStore =
             endHistoryTransaction:
                 () =>
                     set((state) => {
+
                         if (
                             !state.transactionActive ||
                             !state.transactionSnapshot
@@ -474,12 +1364,12 @@ export const useEditorStore =
                             };
                         }
 
-                        const nextPast =
-                            [
-                                ...state.past,
+                        const nextPast = [
+                            ...state.past,
 
-                                state.transactionSnapshot,
-                            ];
+                            state
+                                .transactionSnapshot,
+                        ];
 
                         const boundedPast =
                             nextPast.length >
@@ -514,6 +1404,7 @@ export const useEditorStore =
             cancelHistoryTransaction:
                 () =>
                     set((state) => {
+
                         if (
                             !state.transactionActive
                         ) {
@@ -566,6 +1457,7 @@ export const useEditorStore =
                 parentId
             ) =>
                 set((state) => {
+
                     const selectedId =
                         state.selectedNodeId;
 
@@ -591,19 +1483,39 @@ export const useEditorStore =
                         ) {
                             targetParentId =
                                 selectedNode.id;
-                        } else if (
+                        }
+                        else if (
                             selectedNode.parentId
                         ) {
                             targetParentId =
-                                selectedNode.parentId;
+                                selectedNode
+                                    .parentId;
                         }
+                    }
+
+                    /*
+                     * Use active page root
+                     * when no parent exists.
+                     */
+                    if (
+                        !targetParentId
+                    ) {
+                        const activePage =
+                            state.project
+                                .pages[
+                            state.project
+                                .activePageId
+                            ];
+
+                        targetParentId =
+                            activePage
+                                ?.rootNodeId;
                     }
 
                     if (
                         !targetParentId
                     ) {
-                        targetParentId =
-                            "node-section";
+                        return state;
                     }
 
                     const parent =
@@ -624,6 +1536,16 @@ export const useEditorStore =
                         return state;
                     }
 
+                    /*
+                     * Pages are managed
+                     * separately.
+                     */
+                    if (
+                        type === "page"
+                    ) {
+                        return state;
+                    }
+
                     const childCount =
                         parent.children
                             ?.length ??
@@ -636,35 +1558,40 @@ export const useEditorStore =
                             childCount
                         );
 
+                    const updatedProject: Project = {
+                        ...state.project,
+
+                        nodes: {
+                            ...state
+                                .project
+                                .nodes,
+
+                            [newNode.id]:
+                                newNode,
+
+                            [targetParentId]:
+                            {
+                                ...parent,
+
+                                children: [
+                                    ...(
+                                        parent
+                                            .children ??
+                                        []
+                                    ),
+
+                                    newNode.id,
+                                ],
+                            },
+                        },
+                    };
+
                     if (
                         state.transactionActive
                     ) {
                         return {
-                            project: {
-                                ...state.project,
-
-                                nodes: {
-                                    ...state
-                                        .project
-                                        .nodes,
-
-                                    [newNode.id]:
-                                        newNode,
-
-                                    [targetParentId]:
-                                    {
-                                        ...parent,
-
-                                        children:
-                                            [
-                                                ...(parent.children ??
-                                                    []),
-
-                                                newNode.id,
-                                            ],
-                                    },
-                                },
-                            },
+                            project:
+                                updatedProject,
 
                             selectedNodeId:
                                 newNode.id,
@@ -680,31 +1607,8 @@ export const useEditorStore =
                         );
 
                     return {
-                        project: {
-                            ...state.project,
-
-                            nodes: {
-                                ...state
-                                    .project
-                                    .nodes,
-
-                                [newNode.id]:
-                                    newNode,
-
-                                [targetParentId]:
-                                {
-                                    ...parent,
-
-                                    children:
-                                        [
-                                            ...(parent.children ??
-                                                []),
-
-                                            newNode.id,
-                                        ],
-                                },
-                            },
-                        },
+                        project:
+                            updatedProject,
 
                         selectedNodeId:
                             newNode.id,
@@ -724,38 +1628,39 @@ export const useEditorStore =
                 updates
             ) =>
                 set((state) => {
+
                     const existingNode =
                         state.project
                             .nodes[
                         nodeId
                         ];
 
-                    if (
-                        !existingNode
-                    ) {
+                    if (!existingNode) {
                         return state;
                     }
+
+                    const updatedProject: Project = {
+                        ...state.project,
+
+                        nodes: {
+                            ...state
+                                .project
+                                .nodes,
+
+                            [nodeId]: {
+                                ...existingNode,
+
+                                ...updates,
+                            },
+                        },
+                    };
 
                     if (
                         state.transactionActive
                     ) {
                         return {
-                            project: {
-                                ...state.project,
-
-                                nodes: {
-                                    ...state
-                                        .project
-                                        .nodes,
-
-                                    [nodeId]:
-                                    {
-                                        ...existingNode,
-
-                                        ...updates,
-                                    },
-                                },
-                            },
+                            project:
+                                updatedProject,
 
                             transactionChanged:
                                 true,
@@ -768,22 +1673,8 @@ export const useEditorStore =
                         );
 
                     return {
-                        project: {
-                            ...state.project,
-
-                            nodes: {
-                                ...state
-                                    .project
-                                    .nodes,
-
-                                [nodeId]:
-                                {
-                                    ...existingNode,
-
-                                    ...updates,
-                                },
-                            },
-                        },
+                        project:
+                            updatedProject,
 
                         past,
 
@@ -800,43 +1691,49 @@ export const useEditorStore =
                 styles
             ) =>
                 set((state) => {
+
                     const existingNode =
                         state.project
                             .nodes[
                         nodeId
                         ];
 
-                    if (
-                        !existingNode
-                    ) {
+                    if (!existingNode) {
                         return state;
                     }
+
+                    const updatedNode:
+                        ProjectNode = {
+                        ...existingNode,
+
+                        styles: {
+                            ...(existingNode
+                                .styles ??
+                                {}),
+
+                            ...styles,
+                        },
+                    };
+
+                    const updatedProject: Project = {
+                        ...state.project,
+
+                        nodes: {
+                            ...state
+                                .project
+                                .nodes,
+
+                            [nodeId]:
+                                updatedNode,
+                        },
+                    };
 
                     if (
                         state.transactionActive
                     ) {
                         return {
-                            project: {
-                                ...state.project,
-
-                                nodes: {
-                                    ...state
-                                        .project
-                                        .nodes,
-
-                                    [nodeId]:
-                                    {
-                                        ...existingNode,
-
-                                        styles: {
-                                            ...(existingNode.styles ??
-                                                {}),
-
-                                            ...styles,
-                                        },
-                                    },
-                                },
-                            },
+                            project:
+                                updatedProject,
 
                             transactionChanged:
                                 true,
@@ -849,27 +1746,89 @@ export const useEditorStore =
                         );
 
                     return {
-                        project: {
-                            ...state.project,
+                        project:
+                            updatedProject,
 
-                            nodes: {
-                                ...state
-                                    .project
-                                    .nodes,
+                        past,
 
-                                [nodeId]:
-                                {
-                                    ...existingNode,
+                        future: [],
+                    };
+                }),
 
-                                    styles: {
-                                        ...(existingNode.styles ??
-                                            {}),
+            /* =================================================
+               SET IMAGE ASSET
+            ================================================= */
 
-                                        ...styles,
-                                    },
-                                },
+            setImageAsset: (
+                nodeId,
+                asset
+            ) =>
+                set((state) => {
+
+                    const existingNode =
+                        state.project
+                            .nodes[
+                        nodeId
+                        ];
+
+                    if (!existingNode) {
+                        return state;
+                    }
+
+                    if (
+                        existingNode.type !==
+                        "image"
+                    ) {
+                        return state;
+                    }
+
+                    const updatedProject:
+                        Project = {
+                        ...state.project,
+
+                        assets: {
+                            ...state
+                                .project
+                                .assets,
+
+                            [asset.id]:
+                                asset,
+                        },
+
+                        nodes: {
+                            ...state
+                                .project
+                                .nodes,
+
+                            [nodeId]: {
+                                ...existingNode,
+
+                                assetId:
+                                    asset.id,
                             },
                         },
+                    };
+
+                    if (
+                        state.transactionActive
+                    ) {
+                        return {
+                            project:
+                                updatedProject,
+
+                            transactionChanged:
+                                true,
+                        };
+                    }
+
+                    const past =
+                        pushHistory(
+                            state
+                        );
+
+                    return {
+                        project:
+                            updatedProject,
 
                         past,
 
@@ -888,6 +1847,7 @@ export const useEditorStore =
                     styles
                 ) =>
                     set((state) => {
+
                         const existingNode =
                             state.project
                                 .nodes[
@@ -901,30 +1861,23 @@ export const useEditorStore =
                         }
 
                         const existingStyles =
-                            existingNode.styles ??
+                            existingNode
+                                .styles ??
                             {};
 
                         const existingResponsive =
-                            existingStyles.responsive ??
+                            existingStyles
+                                .responsive ??
                             {};
 
                         const existingBreakpointStyles =
                             existingResponsive[
                             breakpoint
-                            ] ?? {};
+                            ] ??
+                            {};
 
-                        /*
-                         * Create the new node state.
-                         *
-                         * Only the selected breakpoint
-                         * receives the new values.
-                         *
-                         * Base styles remain untouched.
-                         *
-                         * Other breakpoints remain untouched.
-                         */
-                        const updatedNode =
-                        {
+                        const updatedNode:
+                            ProjectNode = {
                             ...existingNode,
 
                             styles: {
@@ -943,52 +1896,41 @@ export const useEditorStore =
                             },
                         };
 
-                        /*
-                         * Transaction mode.
-                         */
+                        const updatedProject:
+                            Project =
+                        {
+                            ...state.project,
+
+                            nodes: {
+                                ...state
+                                    .project
+                                    .nodes,
+
+                                [nodeId]:
+                                    updatedNode,
+                            },
+                        };
+
                         if (
                             state.transactionActive
                         ) {
                             return {
-                                project: {
-                                    ...state.project,
-
-                                    nodes: {
-                                        ...state
-                                            .project
-                                            .nodes,
-
-                                        [nodeId]:
-                                            updatedNode,
-                                    },
-                                },
+                                project:
+                                    updatedProject,
 
                                 transactionChanged:
                                     true,
                             };
                         }
 
-                        /*
-                         * Normal history operation.
-                         */
                         const past =
                             pushHistory(
                                 state
                             );
 
                         return {
-                            project: {
-                                ...state.project,
-
-                                nodes: {
-                                    ...state
-                                        .project
-                                        .nodes,
-
-                                    [nodeId]:
-                                        updatedNode,
-                                },
-                            },
+                            project:
+                                updatedProject,
 
                             past,
 
@@ -1004,6 +1946,7 @@ export const useEditorStore =
                 nodeId
             ) =>
                 set((state) => {
+
                     const node =
                         state.project
                             .nodes[
@@ -1015,7 +1958,8 @@ export const useEditorStore =
                     }
 
                     /*
-                     * Pages cannot be deleted.
+                     * Page roots cannot
+                     * be deleted here.
                      */
                     if (
                         node.type ===
@@ -1032,22 +1976,17 @@ export const useEditorStore =
                             nodeId
                         );
 
-                    const idsToDelete =
-                        [
-                            nodeId,
+                    const idsToDelete = [
+                        nodeId,
 
-                            ...descendants,
-                        ];
+                        ...descendants,
+                    ];
 
                     const newNodes = {
                         ...state.project
                             .nodes,
                     };
 
-                    /*
-                     * Remove node and
-                     * descendants.
-                     */
                     for (
                         const id of
                         idsToDelete
@@ -1057,17 +1996,12 @@ export const useEditorStore =
                         ];
                     }
 
-                    /*
-                     * Remove deleted node
-                     * from its parent.
-                     */
                     if (
                         node.parentId
                     ) {
                         const parent =
                             newNodes[
-                            node
-                                .parentId
+                            node.parentId
                             ];
 
                         if (parent) {
@@ -1076,33 +2010,36 @@ export const useEditorStore =
                             ] = {
                                 ...parent,
 
-                                children: (
-                                    parent.children ??
-                                    []
-                                ).filter(
+                                children:
                                     (
-                                        childId
-                                    ) =>
-                                        childId !==
-                                        nodeId
-                                ),
+                                        parent
+                                            .children ??
+                                        []
+                                    ).filter(
+                                        (
+                                            childId
+                                        ) =>
+                                            childId !==
+                                            nodeId
+                                    ),
                             };
                         }
                     }
 
-                    /*
-                     * Transaction mode.
-                     */
+                    const updatedProject:
+                        Project = {
+                        ...state.project,
+
+                        nodes:
+                            newNodes,
+                    };
+
                     if (
                         state.transactionActive
                     ) {
                         return {
-                            project: {
-                                ...state.project,
-
-                                nodes:
-                                    newNodes,
-                            },
+                            project:
+                                updatedProject,
 
                             selectedNodeId:
                                 null,
@@ -1118,12 +2055,8 @@ export const useEditorStore =
                         );
 
                     return {
-                        project: {
-                            ...state.project,
-
-                            nodes:
-                                newNodes,
-                        },
+                        project:
+                            updatedProject,
 
                         selectedNodeId:
                             null,
@@ -1142,6 +2075,7 @@ export const useEditorStore =
                 nodeId
             ) =>
                 set((state) => {
+
                     const original =
                         state.project
                             .nodes[
@@ -1152,10 +2086,6 @@ export const useEditorStore =
                         return state;
                     }
 
-                    /*
-                     * Root nodes cannot
-                     * be duplicated.
-                     */
                     if (
                         !original.parentId
                     ) {
@@ -1165,8 +2095,7 @@ export const useEditorStore =
                     const parent =
                         state.project
                             .nodes[
-                        original
-                            .parentId
+                        original.parentId
                         ];
 
                     if (!parent) {
@@ -1174,17 +2103,19 @@ export const useEditorStore =
                     }
 
                     const newId =
-                        `${original.type}-${Date.now()}-copy`;
+                        createUniqueNodeId(
+                            state.project
+                                .nodes,
 
-                    /*
-                     * Current behavior duplicates
-                     * the selected node itself.
-                     */
+                            original.type
+                        );
+
                     const duplicatedNode:
                         ProjectNode = {
                         ...original,
 
-                        id: newId,
+                        id:
+                            newId,
 
                         name:
                             `${original.name ??
@@ -1197,11 +2128,13 @@ export const useEditorStore =
                         children: [],
                     };
 
-                    const children =
-                        [
-                            ...(parent.children ??
-                                []),
-                        ];
+                    const children = [
+                        ...(
+                            parent
+                                .children ??
+                            []
+                        ),
+                    ];
 
                     const originalIndex =
                         children.indexOf(
@@ -1221,32 +2154,32 @@ export const useEditorStore =
                         newId
                     );
 
-                    /*
-                     * Transaction mode.
-                     */
+                    const updatedProject:
+                        Project = {
+                        ...state.project,
+
+                        nodes: {
+                            ...state
+                                .project
+                                .nodes,
+
+                            [newId]:
+                                duplicatedNode,
+
+                            [parent.id]: {
+                                ...parent,
+
+                                children,
+                            },
+                        },
+                    };
+
                     if (
                         state.transactionActive
                     ) {
                         return {
-                            project: {
-                                ...state.project,
-
-                                nodes: {
-                                    ...state
-                                        .project
-                                        .nodes,
-
-                                    [newId]:
-                                        duplicatedNode,
-
-                                    [parent.id]:
-                                    {
-                                        ...parent,
-
-                                        children,
-                                    },
-                                },
-                            },
+                            project:
+                                updatedProject,
 
                             selectedNodeId:
                                 newId,
@@ -1262,25 +2195,8 @@ export const useEditorStore =
                         );
 
                     return {
-                        project: {
-                            ...state.project,
-
-                            nodes: {
-                                ...state
-                                    .project
-                                    .nodes,
-
-                                [newId]:
-                                    duplicatedNode,
-
-                                [parent.id]:
-                                {
-                                    ...parent,
-
-                                    children,
-                                },
-                            },
-                        },
+                        project:
+                            updatedProject,
 
                         selectedNodeId:
                             newId,
@@ -1301,6 +2217,7 @@ export const useEditorStore =
                 newIndex
             ) =>
                 set((state) => {
+
                     const result =
                         moveTreeNode(
                             state.project
@@ -1324,19 +2241,20 @@ export const useEditorStore =
                         return state;
                     }
 
-                    /*
-                     * Transaction mode.
-                     */
+                    const updatedProject:
+                        Project = {
+                        ...state.project,
+
+                        nodes:
+                            result.nodes,
+                    };
+
                     if (
                         state.transactionActive
                     ) {
                         return {
-                            project: {
-                                ...state.project,
-
-                                nodes:
-                                    result.nodes,
-                            },
+                            project:
+                                updatedProject,
 
                             selectedNodeId:
                                 nodeId,
@@ -1352,12 +2270,8 @@ export const useEditorStore =
                         );
 
                     return {
-                        project: {
-                            ...state.project,
-
-                            nodes:
-                                result.nodes,
-                        },
+                        project:
+                            updatedProject,
 
                         selectedNodeId:
                             nodeId,
@@ -1374,22 +2288,26 @@ export const useEditorStore =
 
             undo: () =>
                 set((state) => {
+
                     /*
-                     * Cancel active transaction.
+                     * Cancel active transaction
+                     * first.
                      */
                     if (
                         state.transactionActive &&
                         state.transactionSnapshot
                     ) {
                         const previous =
-                            state.transactionSnapshot;
+                            state
+                                .transactionSnapshot;
 
                         return {
                             project:
                                 previous.project,
 
                             selectedNodeId:
-                                previous.selectedNodeId,
+                                previous
+                                    .selectedNodeId,
 
                             transactionSnapshot:
                                 null,
@@ -1425,7 +2343,8 @@ export const useEditorStore =
                             previous.project,
 
                         selectedNodeId:
-                            previous.selectedNodeId,
+                            previous
+                                .selectedNodeId,
 
                         past:
                             state.past.slice(
@@ -1456,10 +2375,7 @@ export const useEditorStore =
 
             redo: () =>
                 set((state) => {
-                    /*
-                     * Never redo while a
-                     * transaction is active.
-                     */
+
                     if (
                         state.transactionActive
                     ) {
@@ -1504,7 +2420,8 @@ export const useEditorStore =
                             next.project,
 
                         selectedNodeId:
-                            next.selectedNodeId,
+                            next
+                                .selectedNodeId,
 
                         future:
                             state.future.slice(

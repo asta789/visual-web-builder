@@ -15,23 +15,51 @@ export type NodeType =
    | "page"
    | "section"
    | "container"
+   | "navbar"
    | "text"
    | "button"
    | "image";
 
 /* =========================================================
+   ASSET TYPES
+========================================================= */
+
+export interface ProjectAsset {
+   id: string;
+
+   name: string;
+
+   type: string;
+
+   size: number;
+
+   source: string;
+
+   width?: number;
+
+   height?: number;
+}
+
+/* =========================================================
+   ANIMATION TRIGGER
+========================================================= */
+
+export type AnimationTrigger =
+   | "load"
+   | "hover"
+   | "click"
+   | "focus"
+   | "scroll";
+
+/* =========================================================
    BASE STYLE PROPERTIES
 ========================================================= */
 
-/*
- * These are the existing style properties used by the
- * current editor.
- *
- * They remain the base/default styles for a node.
- */
-
 export interface BaseStyleProperties {
-   /* Size */
+   /* ---------------------------------------------------------
+      Size
+   --------------------------------------------------------- */
+
    width?: string;
    height?: string;
    minWidth?: string;
@@ -39,7 +67,10 @@ export interface BaseStyleProperties {
    minHeight?: string;
    maxHeight?: string;
 
-   /* Position */
+   /* ---------------------------------------------------------
+      Position
+   --------------------------------------------------------- */
+
    position?:
    | "static"
    | "relative"
@@ -53,25 +84,54 @@ export interface BaseStyleProperties {
    left?: string;
    zIndex?: string;
 
-   /* Margin */
+   /* ---------------------------------------------------------
+      Margin
+   --------------------------------------------------------- */
+
    marginTop?: string;
    marginRight?: string;
    marginBottom?: string;
    marginLeft?: string;
 
-   /* Padding */
+   /* ---------------------------------------------------------
+      Padding
+   --------------------------------------------------------- */
+
    paddingTop?: string;
    paddingRight?: string;
    paddingBottom?: string;
    paddingLeft?: string;
 
-   /* Display */
+   /* ---------------------------------------------------------
+      Display
+   --------------------------------------------------------- */
+
    display?: string;
+
+   /* ---------------------------------------------------------
+      Flex Container
+   --------------------------------------------------------- */
+
    flexDirection?: string;
    justifyContent?: string;
    alignItems?: string;
    gap?: string;
    flexWrap?: string;
+   alignContent?: string;
+
+   /* ---------------------------------------------------------
+      Flex Item
+   --------------------------------------------------------- */
+
+   flexGrow?: string;
+   flexShrink?: string;
+   flexBasis?: string;
+   alignSelf?: string;
+   order?: string;
+
+   /* ---------------------------------------------------------
+      Typography
+   --------------------------------------------------------- */
 
    /* Typography */
    fontFamily?: string;
@@ -81,60 +141,86 @@ export interface BaseStyleProperties {
    letterSpacing?: string;
    textAlign?: string;
    textTransform?: string;
+   textDecoration?: string;
 
-   /* Colors */
+   /* ---------------------------------------------------------
+      Colors
+   --------------------------------------------------------- */
+
    color?: string;
+
    backgroundColor?: string;
 
-   /* Border */
+   /*
+    * CSS gradients are represented using background-image.
+    *
+    * Example:
+    *
+    * linear-gradient(90deg, #ff0000, #0000ff)
+    *
+    * or:
+    *
+    * radial-gradient(circle, #ffffff, #000000)
+    */
+
+   backgroundImage?: string;
+
+   /* ---------------------------------------------------------
+      Border
+   --------------------------------------------------------- */
+
    borderRadius?: string;
    borderStyle?: string;
    borderWidth?: string;
    borderColor?: string;
 
-   /* Effects */
+   /* ---------------------------------------------------------
+      Effects
+   --------------------------------------------------------- */
+
    opacity?: string;
    boxShadow?: string;
+   transform?: string;
+   transition?: string;
+   animation?: string;
+   animationTrigger?: AnimationTrigger;
 
-   /* Overflow */
+
+   /* ---------------------------------------------------------
+      Overflow
+   --------------------------------------------------------- */
+
    overflow?: string;
 
-   /* Interaction */
+   /* ---------------------------------------------------------
+      Interaction
+   --------------------------------------------------------- */
+
    cursor?: string;
 
-   /* Image */
+   /* ---------------------------------------------------------
+      Image
+   --------------------------------------------------------- */
+
    objectFit?: string;
 
-   /* Link */
+   /* ---------------------------------------------------------
+      Link
+   --------------------------------------------------------- */
+
    href?: string;
    target?: string;
 
-   /* Accessibility */
+   /* ---------------------------------------------------------
+      Accessibility
+   --------------------------------------------------------- */
+
    alt?: string;
 }
 
 /* =========================================================
    RESPONSIVE STYLE OVERRIDES
 ========================================================= */
-
-/*
- * A responsive override contains only the properties that
- * are explicitly changed at that breakpoint.
- *
- * Example:
- *
- * responsive: {
- *     mobile: {
- *         fontSize: "18px",
- *         paddingLeft: "16px"
- *     }
- * }
- *
- * Properties not present here are NOT duplicated.
- *
- * Inheritance / fallback resolution will be implemented
- * in the next responsive phase.
- */
 
 export type ResponsiveStyleOverrides =
    Partial<BaseStyleProperties>;
@@ -154,23 +240,6 @@ export interface ResponsiveStyles {
 /* =========================================================
    STYLE PROPERTIES
 ========================================================= */
-
-/*
- * Existing styles remain directly available.
- *
- * This is important because the current Canvas,
- * RightPanel, EditorOverlay and other systems already
- * read properties such as:
- *
- * node.styles?.width
- * node.styles?.fontSize
- * node.styles?.color
- *
- * We are NOT breaking that structure.
- *
- * Responsive values are stored separately under
- * node.styles.responsive.
- */
 
 export interface StyleProperties
    extends BaseStyleProperties {
@@ -193,6 +262,8 @@ export interface ProjectNode {
    children?: string[];
 
    content?: string;
+
+   assetId?: string;
 
    styles?: StyleProperties;
 }
@@ -218,15 +289,11 @@ export interface Project {
 
    name: string;
 
-   nodes: Record<
-      string,
-      ProjectNode
-   >;
+   nodes: Record<string, ProjectNode>;
 
-   pages: Record<
-      string,
-      ProjectPage
-   >;
+   assets: Record<string, ProjectAsset>;
+
+   pages: Record<string, ProjectPage>;
 
    activePageId: string;
 }

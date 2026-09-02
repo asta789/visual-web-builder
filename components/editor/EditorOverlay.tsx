@@ -8,6 +8,10 @@ import {
 
 import { useEditorStore } from "@/store/editorStore";
 
+/* =========================================================
+   RECT
+========================================================= */
+
 interface Rect {
     top: number;
     left: number;
@@ -21,6 +25,10 @@ type ResizeDirection =
     | "bottom-left"
     | "bottom-right";
 
+/* =========================================================
+   RESIZE STATE
+========================================================= */
+
 interface ResizeState {
     direction: ResizeDirection;
 
@@ -30,19 +38,12 @@ interface ResizeState {
     startWidth: number;
     startHeight: number;
 
-    startLeft: number;
-    startTop: number;
+    scale: number;
 }
 
-interface DragState {
-    startX: number;
-    startY: number;
-
-    startLeft: number;
-    startTop: number;
-
-    hasMoved: boolean;
-}
+/* =========================================================
+   EDITOR OVERLAY
+========================================================= */
 
 export default function EditorOverlay() {
     const selectedNodeId =
@@ -83,22 +84,52 @@ export default function EditorOverlay() {
             null
         );
 
-    const dragState =
-        useRef<DragState | null>(
-            null
-        );
-
     const isResizing =
         useRef(false);
 
-    const isDragging =
-        useRef(false);
+    /* =========================================================
+       FIND VIEWPORT
+    ========================================================= */
 
-    /*
-     * ============================================================
-     * RECTANGLE
-     * ============================================================
-     */
+    function getViewportElement() {
+        return document.querySelector(
+            "[data-viewport]"
+        ) as HTMLElement | null;
+    }
+
+    /* =========================================================
+       GET EDITOR SCALE
+    ========================================================= */
+
+    function getEditorScale(
+        viewportElement: HTMLElement
+    ) {
+        const logicalWidth =
+            parseFloat(
+                viewportElement.style.width
+            );
+
+        const visibleWidth =
+            viewportElement
+                .getBoundingClientRect()
+                .width;
+
+        if (
+            !logicalWidth ||
+            logicalWidth <= 0
+        ) {
+            return 1;
+        }
+
+        return (
+            visibleWidth /
+            logicalWidth
+        );
+    }
+
+    /* =========================================================
+       UPDATE RECTANGLE
+    ========================================================= */
 
     function updateRect() {
         if (!selectedNodeId) {
@@ -109,9 +140,15 @@ export default function EditorOverlay() {
         const element =
             document.querySelector(
                 `[data-node-id="${selectedNodeId}"]`
-            );
+            ) as HTMLElement | null;
 
-        if (!element) {
+        const viewportElement =
+            getViewportElement();
+
+        if (
+            !element ||
+            !viewportElement
+        ) {
             setRect(null);
             return;
         }
@@ -119,233 +156,107 @@ export default function EditorOverlay() {
         const bounds =
             element.getBoundingClientRect();
 
+        const viewportBounds =
+            viewportElement
+                .getBoundingClientRect();
+
+        const scale =
+            getEditorScale(
+                viewportElement
+            );
+
+        const relativeLeft =
+            (
+                bounds.left -
+                viewportBounds.left
+            ) / scale;
+
+        const relativeTop =
+            (
+                bounds.top -
+                viewportBounds.top
+            ) / scale;
+
+        const logicalWidth =
+            bounds.width /
+            scale;
+
+        const logicalHeight =
+            bounds.height /
+            scale;
+
         setRect({
-            top: bounds.top,
-            left: bounds.left,
-            width: bounds.width,
-            height: bounds.height,
+            top:
+                relativeTop,
+
+            left:
+                relativeLeft,
+
+            width:
+                logicalWidth,
+
+            height:
+                logicalHeight,
         });
     }
 
-    /*
-     * Update rectangle whenever
-     * selection changes.
-     */
-    useEffect(() => {
-        updateRect();
-    }, [selectedNodeId]);
+    /* =========================================================
+       SELECTION CHANGE
+    ========================================================= */
 
-    /*
-     * Keep overlay synchronized
-     * with scrolling and resizing.
-     */
     useEffect(() => {
+        const frame =
+            requestAnimationFrame(
+                updateRect
+            );
+
+        return () =>
+            cancelAnimationFrame(
+                frame
+            );
+    }, [
+        selectedNodeId,
+    ]);
+
+    /* =========================================================
+       KEEP OVERLAY SYNCHRONIZED
+    ========================================================= */
+
+    useEffect(() => {
+        function handleUpdate() {
+            updateRect();
+        }
+
         window.addEventListener(
             "resize",
-            updateRect
+            handleUpdate
         );
 
         window.addEventListener(
             "scroll",
-            updateRect,
+            handleUpdate,
             true
         );
 
         return () => {
             window.removeEventListener(
                 "resize",
-                updateRect
+                handleUpdate
             );
 
             window.removeEventListener(
                 "scroll",
-                updateRect,
+                handleUpdate,
                 true
             );
         };
-    }, [selectedNodeId]);
+    }, [
+        selectedNodeId,
+    ]);
 
-    /*
-     * ============================================================
-     * DRAGGING
-     * ============================================================
-     */
-
-    function handleDragStart(
-        event: React.PointerEvent
-    ) {
-        event.preventDefault();
-        event.stopPropagation();
-
-        if (
-            !selectedNodeId ||
-            !rect ||
-            isResizing.current
-        ) {
-            return;
-        }
-
-        const node =
-            useEditorStore.getState()
-                .project.nodes[
-            selectedNodeId
-            ];
-
-        if (!node) {
-            return;
-        }
-
-        const currentLeft =
-            parseFloat(
-                node.styles?.left ?? "0"
-            ) || 0;
-
-        const currentTop =
-            parseFloat(
-                node.styles?.top ?? "0"
-            ) || 0;
-
-        /*
-         * Start one history transaction.
-         *
-         * All style updates generated
-         * during this drag will belong
-         * to this single transaction.
-         */
-        beginHistoryTransaction();
-
-        isDragging.current = true;
-
-        dragState.current = {
-            startX: event.clientX,
-            startY: event.clientY,
-
-            startLeft: currentLeft,
-            startTop: currentTop,
-
-            hasMoved: false,
-        };
-
-        (
-            event.currentTarget as HTMLElement
-        ).setPointerCapture(
-            event.pointerId
-        );
-    }
-
-    function handleDragMove(
-        event: React.PointerEvent
-    ) {
-        if (
-            !isDragging.current ||
-            !dragState.current ||
-            !selectedNodeId
-        ) {
-            return;
-        }
-
-        const state =
-            dragState.current;
-
-        const deltaX =
-            event.clientX -
-            state.startX;
-
-        const deltaY =
-            event.clientY -
-            state.startY;
-
-        /*
-         * Ignore extremely small pointer
-         * movements caused by mouse noise.
-         */
-        if (
-            Math.abs(deltaX) < 1 &&
-            Math.abs(deltaY) < 1
-        ) {
-            return;
-        }
-
-        state.hasMoved = true;
-
-        const newLeft =
-            state.startLeft +
-            deltaX;
-
-        const newTop =
-            state.startTop +
-            deltaY;
-
-        updateNodeStyles(
-            selectedNodeId,
-            {
-                position: "relative",
-
-                left: `${Math.round(
-                    newLeft
-                )}px`,
-
-                top: `${Math.round(
-                    newTop
-                )}px`,
-            }
-        );
-
-        requestAnimationFrame(
-            updateRect
-        );
-    }
-
-    function handleDragEnd(
-        event: React.PointerEvent
-    ) {
-        if (!isDragging.current) {
-            return;
-        }
-
-        const moved =
-            dragState.current?.hasMoved ??
-            false;
-
-        isDragging.current = false;
-
-        dragState.current = null;
-
-        try {
-            (
-                event.currentTarget as HTMLElement
-            ).releasePointerCapture(
-                event.pointerId
-            );
-        } catch {
-            /*
-             * Pointer capture may already
-             * have been released.
-             */
-        }
-
-        /*
-         * If the element actually moved,
-         * commit the transaction as ONE
-         * undo step.
-         *
-         * Otherwise cancel it so a simple
-         * click does not create history.
-         */
-        if (moved) {
-            endHistoryTransaction();
-        } else {
-            cancelHistoryTransaction();
-        }
-
-        updateRect();
-    }
-
-    /*
-     * ============================================================
-     * RESIZING
-     * ============================================================
-     */
+    /* =========================================================
+       RESIZE START
+    ========================================================= */
 
     function handleResizeStart(
         event: React.PointerEvent,
@@ -356,39 +267,67 @@ export default function EditorOverlay() {
 
         if (
             !selectedNodeId ||
-            !rect ||
-            isDragging.current
+            !rect
         ) {
             return;
         }
 
-        /*
-         * Start one history transaction
-         * for the entire resize operation.
-         */
+        if (isResizing.current) {
+            return;
+        }
+
+        const viewportElement =
+            getViewportElement();
+
+        if (!viewportElement) {
+            return;
+        }
+
+        const scale =
+            getEditorScale(
+                viewportElement
+            );
+
         beginHistoryTransaction();
 
-        isResizing.current = true;
+        isResizing.current =
+            true;
 
         resizeState.current = {
             direction,
 
-            startX: event.clientX,
-            startY: event.clientY,
+            startX:
+                event.clientX,
 
-            startWidth: rect.width,
-            startHeight: rect.height,
+            startY:
+                event.clientY,
 
-            startLeft: rect.left,
-            startTop: rect.top,
+            startWidth:
+                rect.width,
+
+            startHeight:
+                rect.height,
+
+            scale,
         };
 
-        (
-            event.currentTarget as HTMLElement
-        ).setPointerCapture(
-            event.pointerId
-        );
+        try {
+            (
+                event.currentTarget as HTMLElement
+            ).setPointerCapture(
+                event.pointerId
+            );
+        } catch {
+            /*
+             * Pointer capture may already
+             * be unavailable.
+             */
+        }
     }
+
+    /* =========================================================
+       RESIZE MOVE
+    ========================================================= */
 
     function handleResizeMove(
         event: React.PointerEvent
@@ -401,16 +340,23 @@ export default function EditorOverlay() {
             return;
         }
 
+        event.preventDefault();
+        event.stopPropagation();
+
         const state =
             resizeState.current;
 
         const deltaX =
-            event.clientX -
-            state.startX;
+            (
+                event.clientX -
+                state.startX
+            ) / state.scale;
 
         const deltaY =
-            event.clientY -
-            state.startY;
+            (
+                event.clientY -
+                state.startY
+            ) / state.scale;
 
         let newWidth =
             state.startWidth;
@@ -418,9 +364,10 @@ export default function EditorOverlay() {
         let newHeight =
             state.startHeight;
 
-        /*
-         * Bottom-right
-         */
+        /* -----------------------------------------------------
+           BOTTOM RIGHT
+        ----------------------------------------------------- */
+
         if (
             state.direction ===
             "bottom-right"
@@ -434,9 +381,10 @@ export default function EditorOverlay() {
                 deltaY;
         }
 
-        /*
-         * Bottom-left
-         */
+        /* -----------------------------------------------------
+           BOTTOM LEFT
+        ----------------------------------------------------- */
+
         if (
             state.direction ===
             "bottom-left"
@@ -450,9 +398,10 @@ export default function EditorOverlay() {
                 deltaY;
         }
 
-        /*
-         * Top-right
-         */
+        /* -----------------------------------------------------
+           TOP RIGHT
+        ----------------------------------------------------- */
+
         if (
             state.direction ===
             "top-right"
@@ -466,9 +415,10 @@ export default function EditorOverlay() {
                 deltaY;
         }
 
-        /*
-         * Top-left
-         */
+        /* -----------------------------------------------------
+           TOP LEFT
+        ----------------------------------------------------- */
+
         if (
             state.direction ===
             "top-left"
@@ -482,29 +432,34 @@ export default function EditorOverlay() {
                 deltaY;
         }
 
-        /*
-         * Minimum size.
-         */
-        newWidth = Math.max(
-            20,
-            newWidth
-        );
+        /* -----------------------------------------------------
+           MINIMUM SIZE
+        ----------------------------------------------------- */
 
-        newHeight = Math.max(
-            20,
-            newHeight
-        );
+        newWidth =
+            Math.max(
+                20,
+                newWidth
+            );
+
+        newHeight =
+            Math.max(
+                20,
+                newHeight
+            );
 
         updateNodeStyles(
             selectedNodeId,
             {
-                width: `${Math.round(
-                    newWidth
-                )}px`,
+                width:
+                    `${Math.round(
+                        newWidth
+                    )}px`,
 
-                height: `${Math.round(
-                    newHeight
-                )}px`,
+                height:
+                    `${Math.round(
+                        newHeight
+                    )}px`,
             }
         );
 
@@ -513,19 +468,30 @@ export default function EditorOverlay() {
         );
     }
 
+    /* =========================================================
+       RESIZE END
+    ========================================================= */
+
     function handleResizeEnd(
         event: React.PointerEvent
     ) {
-        if (!isResizing.current) {
+        if (
+            !isResizing.current
+        ) {
             return;
         }
+
+        event.preventDefault();
+        event.stopPropagation();
 
         const state =
             resizeState.current;
 
-        isResizing.current = false;
+        isResizing.current =
+            false;
 
-        resizeState.current = null;
+        resizeState.current =
+            null;
 
         try {
             (
@@ -536,32 +502,33 @@ export default function EditorOverlay() {
         } catch {
             /*
              * Pointer capture may already
-             * have been released.
+             * be released.
              */
         }
 
-        /*
-         * Determine whether the resize
-         * actually changed dimensions.
-         */
         const finalNode =
             selectedNodeId
                 ? useEditorStore
                     .getState()
-                    .project.nodes[
+                    .project
+                    .nodes[
                 selectedNodeId
                 ]
                 : null;
 
         const finalWidth =
-            finalNode?.styles?.width
+            finalNode
+                ?.styles
+                ?.width
                 ? parseFloat(
                     finalNode.styles.width
                 )
                 : state?.startWidth;
 
         const finalHeight =
-            finalNode?.styles?.height
+            finalNode
+                ?.styles
+                ?.height
                 ? parseFloat(
                     finalNode.styles.height
                 )
@@ -584,10 +551,6 @@ export default function EditorOverlay() {
                 )
             );
 
-        /*
-         * Commit one history entry only
-         * if the size actually changed.
-         */
         if (changed) {
             endHistoryTransaction();
         } else {
@@ -597,11 +560,9 @@ export default function EditorOverlay() {
         updateRect();
     }
 
-    /*
-     * ============================================================
-     * RENDER
-     * ============================================================
-     */
+    /* =========================================================
+       NO SELECTION
+    ========================================================= */
 
     if (
         !selectedNodeId ||
@@ -611,50 +572,51 @@ export default function EditorOverlay() {
     }
 
     const node =
-        useEditorStore.getState()
-            .project.nodes[
+        useEditorStore
+            .getState()
+            .project
+            .nodes[
         selectedNodeId
         ];
+
+    /* =========================================================
+       RENDER
+       
+       IMPORTANT:
+       
+       The overlay itself is pointer-events-none.
+       
+       Therefore it cannot block the actual
+       button/text/image/container underneath.
+       
+       Resize handles explicitly enable
+       pointer-events-auto.
+    ========================================================= */
 
     return (
         <div
             className="
                 pointer-events-none
-                fixed
+                absolute
                 z-[9999]
             "
             style={{
-                top: rect.top,
-                left: rect.left,
-                width: rect.width,
-                height: rect.height,
+                top:
+                    `${rect.top}px`,
+
+                left:
+                    `${rect.left}px`,
+
+                width:
+                    `${rect.width}px`,
+
+                height:
+                    `${rect.height}px`,
             }}
         >
-            {/* ==================================================
-                DRAG AREA
-            ================================================== */}
-
-            <div
-                className="
-                    pointer-events-auto
-                    absolute
-                    inset-0
-                    cursor-move
-                "
-                onPointerDown={
-                    handleDragStart
-                }
-                onPointerMove={
-                    handleDragMove
-                }
-                onPointerUp={
-                    handleDragEnd
-                }
-            />
-
-            {/* ==================================================
+            {/* =================================================
                 SELECTION BORDER
-            ================================================== */}
+            ================================================= */}
 
             <div
                 className="
@@ -666,9 +628,9 @@ export default function EditorOverlay() {
                 "
             />
 
-            {/* ==================================================
+            {/* =================================================
                 ELEMENT LABEL
-            ================================================== */}
+            ================================================= */}
 
             <div
                 className="
@@ -682,8 +644,8 @@ export default function EditorOverlay() {
                     py-0.5
                     text-[10px]
                     font-medium
-                    text-white
                     whitespace-nowrap
+                    text-white
                 "
             >
                 {node?.name ||
@@ -691,9 +653,9 @@ export default function EditorOverlay() {
                     "Element"}
             </div>
 
-            {/* ==================================================
-                TOP-LEFT
-            ================================================== */}
+            {/* =================================================
+                TOP LEFT
+            ================================================= */}
 
             <ResizeHandle
                 position="top-left"
@@ -714,9 +676,9 @@ export default function EditorOverlay() {
                 }
             />
 
-            {/* ==================================================
-                TOP-RIGHT
-            ================================================== */}
+            {/* =================================================
+                TOP RIGHT
+            ================================================= */}
 
             <ResizeHandle
                 position="top-right"
@@ -737,9 +699,9 @@ export default function EditorOverlay() {
                 }
             />
 
-            {/* ==================================================
-                BOTTOM-LEFT
-            ================================================== */}
+            {/* =================================================
+                BOTTOM LEFT
+            ================================================= */}
 
             <ResizeHandle
                 position="bottom-left"
@@ -760,9 +722,9 @@ export default function EditorOverlay() {
                 }
             />
 
-            {/* ==================================================
-                BOTTOM-RIGHT
-            ================================================== */}
+            {/* =================================================
+                BOTTOM RIGHT
+            ================================================= */}
 
             <ResizeHandle
                 position="bottom-right"
@@ -844,7 +806,8 @@ function ResizeHandle({
             `}
             style={{
                 cursor,
-                touchAction: "none",
+                touchAction:
+                    "none",
             }}
             onPointerDown={
                 onPointerDown

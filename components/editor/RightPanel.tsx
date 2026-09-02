@@ -1,12 +1,38 @@
+
 "use client";
 
+import {
+    useRef,
+    useState,
+    type ReactNode,
+} from "react";
+
+import type {
+    BreakpointId,
+} from "@/model/type";
+
 import { useEditorStore } from "@/store/editorStore";
+
+/* =========================================================
+   RIGHT PANEL PROPS
+========================================================= */
+
+interface RightPanelProps {
+    viewport: BreakpointId;
+}
+
+/* =========================================================
+   STYLE INPUT
+========================================================= */
 
 interface StyleInputProps {
     label: string;
     value?: string;
     placeholder?: string;
     type?: "text" | "number";
+    min?: string;
+    max?: string;
+    step?: string;
     onChange: (value: string) => void;
 }
 
@@ -15,6 +41,9 @@ function StyleInput({
     value,
     placeholder,
     type = "text",
+    min,
+    max,
+    step,
     onChange,
 }: StyleInputProps) {
     return (
@@ -27,6 +56,9 @@ function StyleInput({
                 type={type}
                 value={value || ""}
                 placeholder={placeholder}
+                min={min}
+                max={max}
+                step={step}
                 onChange={(event) =>
                     onChange(event.target.value)
                 }
@@ -47,6 +79,77 @@ function StyleInput({
         </div>
     );
 }
+
+/* =========================================================
+   DIMENSION INPUT
+========================================================= */
+
+interface DimensionInputProps {
+    label: string;
+    value?: string;
+    placeholder?: string;
+    onChange: (value: string) => void;
+}
+
+function DimensionInput({
+    label,
+    value,
+    placeholder,
+    onChange,
+}: DimensionInputProps) {
+    return (
+        <div>
+            <label className="mb-1.5 block text-xs font-medium text-gray-500">
+                {label}
+            </label>
+
+            <div className="relative">
+                <input
+                    type="text"
+                    value={value || ""}
+                    placeholder={placeholder}
+                    onChange={(event) =>
+                        onChange(event.target.value)
+                    }
+                    className="
+                        w-full
+                        rounded-md
+                        border
+                        px-2.5
+                        py-2
+                        pr-10
+                        text-sm
+                        outline-none
+                        transition
+                        focus:border-blue-500
+                        focus:ring-1
+                        focus:ring-blue-500
+                    "
+                />
+
+                <span
+                    className="
+                        pointer-events-none
+                        absolute
+                        right-2.5
+                        top-1/2
+                        -translate-y-1/2
+                        text-[10px]
+                        font-medium
+                        uppercase
+                        text-gray-400
+                    "
+                >
+                    CSS
+                </span>
+            </div>
+        </div>
+    );
+}
+
+/* =========================================================
+   STYLE SELECT
+========================================================= */
 
 interface StyleSelectProps {
     label: string;
@@ -102,6 +205,92 @@ function StyleSelect({
     );
 }
 
+/* =========================================================
+   TRANSFORM INPUT
+========================================================= */
+
+interface TransformInputProps {
+    label: string;
+    value: string;
+    unit: string;
+    min?: number;
+    max?: number;
+    step?: number;
+    onChange: (value: string) => void;
+}
+
+function TransformInput({
+    label,
+    value,
+    unit,
+    min,
+    max,
+    step = 1,
+    onChange,
+}: TransformInputProps) {
+    return (
+        <div>
+            <label className="
+                mb-1.5
+                block
+                text-xs
+                font-medium
+                text-gray-500
+            ">
+                {label}
+            </label>
+
+            <div className="flex gap-2">
+                <input
+                    type="number"
+                    value={value}
+                    min={min}
+                    max={max}
+                    step={step}
+                    onChange={(event) =>
+                        onChange(
+                            event.target.value
+                        )
+                    }
+                    className="
+                        min-w-0
+                        flex-1
+                        rounded-md
+                        border
+                        px-2.5
+                        py-2
+                        text-sm
+                        outline-none
+                        transition
+                        focus:border-blue-500
+                        focus:ring-1
+                        focus:ring-blue-500
+                    "
+                />
+
+                <div className="
+                    flex
+                    w-12
+                    items-center
+                    justify-center
+                    rounded-md
+                    border
+                    bg-gray-50
+                    text-xs
+                    font-medium
+                    text-gray-400
+                ">
+                    {unit}
+                </div>
+            </div>
+        </div>
+    );
+}
+
+/* =========================================================
+   COLOR INPUT
+========================================================= */
+
 interface ColorInputProps {
     label: string;
     value?: string;
@@ -132,9 +321,7 @@ function ColorInput({
                     type="color"
                     value={colorValue}
                     onChange={(event) =>
-                        onChange(
-                            event.target.value
-                        )
+                        onChange(event.target.value)
                     }
                     className="
                         h-9
@@ -150,13 +337,10 @@ function ColorInput({
                     type="text"
                     value={value || ""}
                     placeholder={
-                        placeholder ||
-                        "#000000"
+                        placeholder || "#000000"
                     }
                     onChange={(event) =>
-                        onChange(
-                            event.target.value
-                        )
+                        onChange(event.target.value)
                     }
                     className="
                         min-w-0
@@ -177,32 +361,1624 @@ function ColorInput({
     );
 }
 
-interface InspectorSectionProps {
-    title: string;
-    children: React.ReactNode;
+/* =========================================================
+   GRADIENT BUILDER
+========================================================= */
+
+interface GradientBuilderProps {
+    value?: string;
+    onChange: (value: string) => void;
 }
 
-function InspectorSection({
-    title,
-    children,
-}: InspectorSectionProps) {
-    return (
-        <div className="border-b pb-5">
-            <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-400">
-                {title}
-            </h3>
+function GradientBuilder({
+    value,
+    onChange,
+}: GradientBuilderProps) {
+    const [gradientType, setGradientType] =
+        useState<"linear" | "radial">(
+            value?.startsWith("radial-gradient")
+                ? "radial"
+                : "linear"
+        );
 
-            <div className="space-y-3">
-                {children}
+    const [angle, setAngle] =
+        useState("90");
+
+    const [colorOne, setColorOne] =
+        useState("#ff0000");
+
+    const [colorTwo, setColorTwo] =
+        useState("#0000ff");
+
+    const [colorThree, setColorThree] =
+        useState("");
+
+    const [useThirdColor, setUseThirdColor] =
+        useState(false);
+
+    function buildGradient(
+        type: "linear" | "radial",
+        nextAngle: string,
+        nextColorOne: string,
+        nextColorTwo: string,
+        nextColorThree: string,
+        nextUseThirdColor: boolean
+    ) {
+        const colors = nextUseThirdColor &&
+            nextColorThree
+            ? `${nextColorOne}, ${nextColorTwo}, ${nextColorThree}`
+            : `${nextColorOne}, ${nextColorTwo}`;
+
+        if (type === "radial") {
+            return `radial-gradient(circle, ${colors})`;
+        }
+
+        const numericAngle =
+            nextAngle || "90";
+
+        return `linear-gradient(${numericAngle}deg, ${colors})`;
+    }
+
+    function updateGradient(
+        changes: Partial<{
+            type: "linear" | "radial";
+            angle: string;
+            colorOne: string;
+            colorTwo: string;
+            colorThree: string;
+            useThirdColor: boolean;
+        }>
+    ) {
+        const nextType =
+            changes.type ?? gradientType;
+
+        const nextAngle =
+            changes.angle ?? angle;
+
+        const nextColorOne =
+            changes.colorOne ?? colorOne;
+
+        const nextColorTwo =
+            changes.colorTwo ?? colorTwo;
+
+        const nextColorThree =
+            changes.colorThree ??
+            colorThree;
+
+        const nextUseThirdColor =
+            changes.useThirdColor ??
+            useThirdColor;
+
+        if (changes.type) {
+            setGradientType(
+                changes.type
+            );
+        }
+
+        if (changes.angle !== undefined) {
+            setAngle(
+                changes.angle
+            );
+        }
+
+        if (changes.colorOne !== undefined) {
+            setColorOne(
+                changes.colorOne
+            );
+        }
+
+        if (changes.colorTwo !== undefined) {
+            setColorTwo(
+                changes.colorTwo
+            );
+        }
+
+        if (changes.colorThree !== undefined) {
+            setColorThree(
+                changes.colorThree
+            );
+        }
+
+        if (
+            changes.useThirdColor !==
+            undefined
+        ) {
+            setUseThirdColor(
+                changes.useThirdColor
+            );
+        }
+
+        const gradient =
+            buildGradient(
+                nextType,
+                nextAngle,
+                nextColorOne,
+                nextColorTwo,
+                nextColorThree,
+                nextUseThirdColor
+            );
+
+        onChange(gradient);
+    }
+
+    function applyPreset(
+        first: string,
+        second: string
+    ) {
+        updateGradient({
+            colorOne: first,
+            colorTwo: second,
+        });
+    }
+
+    return (
+        <div className="space-y-4 rounded-lg border bg-gray-50 p-3">
+
+            {/* =====================================================
+                TYPE
+            ===================================================== */}
+
+            <StyleSelect
+                label="Gradient Type"
+                value={gradientType}
+                options={[
+                    {
+                        label: "Linear",
+                        value: "linear",
+                    },
+                    {
+                        label: "Radial",
+                        value: "radial",
+                    },
+                ]}
+                onChange={(value) =>
+                    updateGradient({
+                        type:
+                            value === "radial"
+                                ? "radial"
+                                : "linear",
+                    })
+                }
+            />
+
+            {/* =====================================================
+                ANGLE
+            ===================================================== */}
+
+            {gradientType === "linear" && (
+                <StyleInput
+                    label="Direction"
+                    value={angle}
+                    type="number"
+                    min="0"
+                    max="360"
+                    step="1"
+                    placeholder="90"
+                    onChange={(value) =>
+                        updateGradient({
+                            angle: value,
+                        })
+                    }
+                />
+            )}
+
+            {/* =====================================================
+                COLOR 1
+            ===================================================== */}
+
+            <ColorInput
+                label="Start Color"
+                value={colorOne}
+                onChange={(value) =>
+                    updateGradient({
+                        colorOne: value,
+                    })
+                }
+            />
+
+            {/* =====================================================
+                COLOR 2
+            ===================================================== */}
+
+            <ColorInput
+                label="End Color"
+                value={colorTwo}
+                onChange={(value) =>
+                    updateGradient({
+                        colorTwo: value,
+                    })
+                }
+            />
+
+            {/* =====================================================
+                THIRD COLOR
+            ===================================================== */}
+
+            <div>
+                <label className="
+                    mb-2
+                    flex
+                    items-center
+                    gap-2
+                    text-xs
+                    font-medium
+                    text-gray-500
+                ">
+                    <input
+                        type="checkbox"
+                        checked={useThirdColor}
+                        onChange={(event) =>
+                            updateGradient({
+                                useThirdColor:
+                                    event.target
+                                        .checked,
+                            })
+                        }
+                    />
+
+                    Use third color
+                </label>
+
+                {useThirdColor && (
+                    <ColorInput
+                        label="Middle Color"
+                        value={colorThree}
+                        onChange={(value) =>
+                            updateGradient({
+                                colorThree:
+                                    value,
+                            })
+                        }
+                    />
+                )}
+            </div>
+
+            {/* =====================================================
+                LIVE PREVIEW
+            ===================================================== */}
+
+            <div>
+                <label className="
+                    mb-1.5
+                    block
+                    text-xs
+                    font-medium
+                    text-gray-500
+                ">
+                    Preview
+                </label>
+
+                <div
+                    className="
+                        h-20
+                        w-full
+                        rounded-lg
+                        border
+                        shadow-sm
+                    "
+                    style={{
+                        backgroundImage:
+                            value ||
+                            buildGradient(
+                                gradientType,
+                                angle,
+                                colorOne,
+                                colorTwo,
+                                colorThree,
+                                useThirdColor
+                            ),
+                    }}
+                />
+            </div>
+
+            {/* =====================================================
+                PRESETS
+            ===================================================== */}
+
+            <div>
+                <label className="
+                    mb-2
+                    block
+                    text-xs
+                    font-medium
+                    text-gray-500
+                ">
+                    Quick Presets
+                </label>
+
+                <div className="grid grid-cols-2 gap-2">
+
+                    <button
+                        type="button"
+                        onClick={() =>
+                            applyPreset(
+                                "#ff0000",
+                                "#0000ff"
+                            )
+                        }
+                        className="
+                            h-8
+                            rounded-md
+                            border
+                        "
+                        style={{
+                            background:
+                                "linear-gradient(90deg, #ff0000, #0000ff)",
+                        }}
+                        title="Red to Blue"
+                    />
+
+                    <button
+                        type="button"
+                        onClick={() =>
+                            applyPreset(
+                                "#ff7e5f",
+                                "#feb47b"
+                            )
+                        }
+                        className="
+                            h-8
+                            rounded-md
+                            border
+                        "
+                        style={{
+                            background:
+                                "linear-gradient(90deg, #ff7e5f, #feb47b)",
+                        }}
+                        title="Sunset"
+                    />
+
+                    <button
+                        type="button"
+                        onClick={() =>
+                            applyPreset(
+                                "#667eea",
+                                "#764ba2"
+                            )
+                        }
+                        className="
+                            h-8
+                            rounded-md
+                            border
+                        "
+                        style={{
+                            background:
+                                "linear-gradient(90deg, #667eea, #764ba2)",
+                        }}
+                        title="Purple"
+                    />
+
+                    <button
+                        type="button"
+                        onClick={() =>
+                            applyPreset(
+                                "#11998e",
+                                "#38ef7d"
+                            )
+                        }
+                        className="
+                            h-8
+                            rounded-md
+                            border
+                        "
+                        style={{
+                            background:
+                                "linear-gradient(90deg, #11998e, #38ef7d)",
+                        }}
+                        title="Green"
+                    />
+
+                </div>
+            </div>
+
+            {/* =====================================================
+                GENERATED CSS
+            ===================================================== */}
+
+            <div>
+                <label className="
+                    mb-1.5
+                    block
+                    text-xs
+                    font-medium
+                    text-gray-500
+                ">
+                    Generated CSS
+                </label>
+
+                <div className="
+                    break-all
+                    rounded-md
+                    border
+                    bg-white
+                    px-2.5
+                    py-2
+                    text-[11px]
+                    text-gray-500
+                ">
+                    {value ||
+                        buildGradient(
+                            gradientType,
+                            angle,
+                            colorOne,
+                            colorTwo,
+                            colorThree,
+                            useThirdColor
+                        )}
+                </div>
+            </div>
+
+        </div>
+    );
+}
+
+/* =========================================================
+   BOX MODEL EDITOR
+========================================================= */
+
+interface BoxModelEditorProps {
+    title: string;
+    values: {
+        top?: string;
+        right?: string;
+        bottom?: string;
+        left?: string;
+    };
+    onChange: (
+        side:
+            | "top"
+            | "right"
+            | "bottom"
+            | "left",
+        value: string
+    ) => void;
+}
+
+function BoxModelEditor({
+    title,
+    values,
+    onChange,
+}: BoxModelEditorProps) {
+    const [linked, setLinked] =
+        useState(false);
+
+    function handleChange(
+        side:
+            | "top"
+            | "right"
+            | "bottom"
+            | "left",
+        value: string
+    ) {
+        if (linked) {
+            onChange("top", value);
+            onChange("right", value);
+            onChange("bottom", value);
+            onChange("left", value);
+
+            return;
+        }
+
+        onChange(side, value);
+    }
+
+    return (
+        <div>
+
+            <div className="
+                mb-3
+                flex
+                items-center
+                justify-between
+            ">
+                <label className="
+                    text-xs
+                    font-medium
+                    text-gray-500
+                ">
+                    {title}
+                </label>
+
+                <button
+                    type="button"
+                    onClick={() =>
+                        setLinked(
+                            (current) =>
+                                !current
+                        )
+                    }
+                    className={`
+                        rounded-md
+                        border
+                        px-2
+                        py-1
+                        text-xs
+                        font-medium
+                        transition
+                        ${linked
+                            ? "border-blue-500 bg-blue-50 text-blue-600"
+                            : "border-gray-200 bg-white text-gray-500 hover:bg-gray-50"
+                        }
+                    `}
+                >
+                    {linked
+                        ? "🔗 Linked"
+                        : "🔓 Unlinked"}
+                </button>
+            </div>
+
+            <div className="
+                rounded-lg
+                border
+                bg-gray-50
+                p-3
+            ">
+
+                <div className="
+                    mx-auto
+                    max-w-[120px]
+                ">
+                    <StyleInput
+                        label="Top"
+                        value={values.top}
+                        placeholder="0px"
+                        onChange={(value) =>
+                            handleChange(
+                                "top",
+                                value
+                            )
+                        }
+                    />
+                </div>
+
+                <div className="
+                    mt-3
+                    grid
+                    grid-cols-[1fr_80px_1fr]
+                    items-center
+                    gap-2
+                ">
+
+                    <StyleInput
+                        label="Left"
+                        value={values.left}
+                        placeholder="0px"
+                        onChange={(value) =>
+                            handleChange(
+                                "left",
+                                value
+                            )
+                        }
+                    />
+
+                    <div className="
+                        flex
+                        h-16
+                        items-center
+                        justify-center
+                        rounded-md
+                        border
+                        border-dashed
+                        bg-white
+                        text-[10px]
+                        font-medium
+                        uppercase
+                        tracking-wide
+                        text-gray-400
+                    ">
+                        Box
+                    </div>
+
+                    <StyleInput
+                        label="Right"
+                        value={values.right}
+                        placeholder="0px"
+                        onChange={(value) =>
+                            handleChange(
+                                "right",
+                                value
+                            )
+                        }
+                    />
+
+                </div>
+
+                <div className="
+                    mx-auto
+                    mt-3
+                    max-w-[120px]
+                ">
+                    <StyleInput
+                        label="Bottom"
+                        value={values.bottom}
+                        placeholder="0px"
+                        onChange={(value) =>
+                            handleChange(
+                                "bottom",
+                                value
+                            )
+                        }
+                    />
+                </div>
+
             </div>
         </div>
     );
 }
 
-export default function RightPanel() {
-    const project = useEditorStore(
-        (state) => state.project
+/* =========================================================
+   INSPECTOR SECTION
+========================================================= */
+
+interface InspectorSectionProps {
+    title: string;
+    children: ReactNode;
+    defaultOpen?: boolean;
+}
+
+function InspectorSection({
+    title,
+    children,
+    defaultOpen = true,
+}: InspectorSectionProps) {
+    const [isOpen, setIsOpen] =
+        useState(defaultOpen);
+
+    return (
+        <div className="border-b pb-4">
+
+            <button
+                type="button"
+                onClick={() =>
+                    setIsOpen(
+                        (open) => !open
+                    )
+                }
+                className="
+                    flex
+                    w-full
+                    items-center
+                    justify-between
+                    py-1
+                    text-left
+                    transition
+                    hover:text-gray-700
+                "
+                aria-expanded={isOpen}
+            >
+                <span className="
+                    text-xs
+                    font-semibold
+                    uppercase
+                    tracking-wide
+                    text-gray-400
+                ">
+                    {title}
+                </span>
+
+                <span
+                    className="
+                        text-xs
+                        text-gray-400
+                        transition-transform
+                    "
+                    style={{
+                        transform:
+                            isOpen
+                                ? "rotate(0deg)"
+                                : "rotate(-90deg)",
+                    }}
+                >
+                    ▼
+                </span>
+            </button>
+
+            {isOpen && (
+                <div className="
+                    mt-3
+                    space-y-3
+                ">
+                    {children}
+                </div>
+            )}
+
+        </div>
     );
+}
+
+/* =========================================================
+   TRANSITION EDITOR
+========================================================= */
+
+interface TransitionEditorProps {
+    value?: string;
+    onChange: (value: string) => void;
+}
+
+const TRANSITION_DEFAULTS = {
+    property: "all",
+    duration: "0.3",
+    timing: "ease",
+    delay: "0",
+};
+
+function parseTransition(value?: string) {
+    if (!value || value === "none") {
+        return TRANSITION_DEFAULTS;
+    }
+
+    const parts = value.trim().split(/\s+/);
+
+    const property =
+        parts[0] || TRANSITION_DEFAULTS.property;
+
+    const durationPart =
+        parts.find((part) =>
+            /^\d*\.?\d+s$/.test(part)
+        );
+
+    const delayCandidates =
+        parts.filter((part) =>
+            /^\d*\.?\d+s$/.test(part)
+        );
+
+    const duration =
+        durationPart
+            ? durationPart.replace("s", "")
+            : TRANSITION_DEFAULTS.duration;
+
+    const delay =
+        delayCandidates.length > 1
+            ? delayCandidates[1].replace("s", "")
+            : TRANSITION_DEFAULTS.delay;
+
+    const timing =
+        parts.find((part) =>
+            [
+                "ease",
+                "ease-in",
+                "ease-out",
+                "ease-in-out",
+                "linear",
+            ].includes(part)
+        ) || TRANSITION_DEFAULTS.timing;
+
+    return {
+        property,
+        duration,
+        timing,
+        delay,
+    };
+}
+
+function buildTransition(
+    property: string,
+    duration: string,
+    timing: string,
+    delay: string
+) {
+    const safeDuration =
+        duration.trim() || "0.3";
+
+    const safeDelay =
+        delay.trim() || "0";
+
+    return `${property} ${safeDuration}s ${timing} ${safeDelay}s`;
+}
+
+function TransitionEditor({
+    value,
+    onChange,
+}: TransitionEditorProps) {
+    const parsed = parseTransition(value);
+
+    const enabled =
+        Boolean(value && value !== "none");
+
+    function updateTransition(
+        changes: Partial<typeof parsed>
+    ) {
+        const next = {
+            ...parsed,
+            ...changes,
+        };
+
+        onChange(
+            buildTransition(
+                next.property,
+                next.duration,
+                next.timing,
+                next.delay
+            )
+        );
+    }
+
+    return (
+        <div className="space-y-4">
+            {/* ENABLE */}
+            <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-gray-700">
+                    Enable Transition
+                </span>
+
+                <button
+                    type="button"
+                    onClick={() => {
+                        if (enabled) {
+                            onChange("");
+                        } else {
+                            onChange(
+                                buildTransition(
+                                    TRANSITION_DEFAULTS.property,
+                                    TRANSITION_DEFAULTS.duration,
+                                    TRANSITION_DEFAULTS.timing,
+                                    TRANSITION_DEFAULTS.delay
+                                )
+                            );
+                        }
+                    }}
+                    className={`
+                        relative
+                        h-5
+                        w-9
+                        rounded-full
+                        transition-colors
+                        ${enabled
+                            ? "bg-blue-600"
+                            : "bg-gray-300"
+                        }
+                    `}
+                    aria-label="Toggle transition"
+                >
+                    <span
+                        className={`
+                            absolute
+                            top-0.5
+                            h-4
+                            w-4
+                            rounded-full
+                            bg-white
+                            shadow
+                            transition-transform
+                            ${enabled
+                                ? "translate-x-4"
+                                : "translate-x-0.5"
+                            }
+                        `}
+                    />
+                </button>
+            </div>
+
+            {enabled && (
+                <>
+                    {/* PROPERTY */}
+                    <StyleSelect
+                        label="Property"
+                        value={parsed.property}
+                        options={[
+                            {
+                                label: "All",
+                                value: "all",
+                            },
+                            {
+                                label: "Transform",
+                                value: "transform",
+                            },
+                            {
+                                label: "Opacity",
+                                value: "opacity",
+                            },
+                            {
+                                label: "Background Color",
+                                value: "background-color",
+                            },
+                            {
+                                label: "Text Color",
+                                value: "color",
+                            },
+                            {
+                                label: "Width",
+                                value: "width",
+                            },
+                            {
+                                label: "Height",
+                                value: "height",
+                            },
+                        ]}
+                        onChange={(property) =>
+                            updateTransition({
+                                property,
+                            })
+                        }
+                    />
+
+                    {/* DURATION */}
+                    <div>
+                        <label className="mb-1 block text-xs font-medium text-gray-600">
+                            Duration
+                        </label>
+
+                        <div className="flex items-center gap-2">
+                            <input
+                                type="number"
+                                min="0"
+                                max="10"
+                                step="0.05"
+                                value={parsed.duration}
+                                onChange={(event) =>
+                                    updateTransition({
+                                        duration:
+                                            event.target.value,
+                                    })
+                                }
+                                className="
+                                    w-full
+                                    rounded
+                                    border
+                                    px-2
+                                    py-1.5
+                                    text-sm
+                                    outline-none
+                                    focus:border-blue-500
+                                "
+                            />
+
+                            <span className="text-xs text-gray-400">
+                                sec
+                            </span>
+                        </div>
+                    </div>
+
+                    {/* TIMING */}
+                    <StyleSelect
+                        label="Timing"
+                        value={parsed.timing}
+                        options={[
+                            {
+                                label: "Ease",
+                                value: "ease",
+                            },
+                            {
+                                label: "Ease In",
+                                value: "ease-in",
+                            },
+                            {
+                                label: "Ease Out",
+                                value: "ease-out",
+                            },
+                            {
+                                label: "Ease In Out",
+                                value: "ease-in-out",
+                            },
+                            {
+                                label: "Linear",
+                                value: "linear",
+                            },
+                        ]}
+                        onChange={(timing) =>
+                            updateTransition({
+                                timing,
+                            })
+                        }
+                    />
+
+                    {/* DELAY */}
+                    <div>
+                        <label className="mb-1 block text-xs font-medium text-gray-600">
+                            Delay
+                        </label>
+
+                        <div className="flex items-center gap-2">
+                            <input
+                                type="number"
+                                min="0"
+                                max="10"
+                                step="0.05"
+                                value={parsed.delay}
+                                onChange={(event) =>
+                                    updateTransition({
+                                        delay:
+                                            event.target.value,
+                                    })
+                                }
+                                className="
+                                    w-full
+                                    rounded
+                                    border
+                                    px-2
+                                    py-1.5
+                                    text-sm
+                                    outline-none
+                                    focus:border-blue-500
+                                "
+                            />
+
+                            <span className="text-xs text-gray-400">
+                                sec
+                            </span>
+                        </div>
+                    </div>
+
+                    {/* PREVIEW */}
+                    <div
+                        className="
+                            rounded
+                            bg-gray-50
+                            px-3
+                            py-2
+                            text-[11px]
+                            text-gray-500
+                        "
+                    >
+                        <div className="mb-1 font-medium text-gray-600">
+                            CSS Preview
+                        </div>
+
+                        <code className="break-all">
+                            transition:{" "}
+                            {buildTransition(
+                                parsed.property,
+                                parsed.duration,
+                                parsed.timing,
+                                parsed.delay
+                            )}
+                        </code>
+                    </div>
+                </>
+            )}
+        </div>
+    );
+}
+
+/* =========================================================
+   ANIMATION EDITOR
+========================================================= */
+
+
+interface AnimationEditorProps {
+    value?: string;
+    trigger?: string;
+    onChange: (value: string) => void;
+    onTriggerChange: (value: string) => void;
+}
+
+const ANIMATION_DEFAULTS = {
+    preset: "vwb-fade-in",
+    duration: "1",
+    timing: "ease",
+    delay: "0",
+    iteration: "1",
+    direction: "normal",
+    fill: "both",
+};
+
+
+
+const ANIMATION_PRESETS = [
+    {
+        label: "Fade In",
+        value: "vwb-fade-in",
+    },
+    {
+        label: "Fade Out",
+        value: "vwb-fade-out",
+    },
+    {
+        label: "Slide Up",
+        value: "vwb-slide-up",
+    },
+    {
+        label: "Slide Down",
+        value: "vwb-slide-down",
+    },
+    {
+        label: "Slide Left",
+        value: "vwb-slide-left",
+    },
+    {
+        label: "Slide Right",
+        value: "vwb-slide-right",
+    },
+    {
+        label: "Zoom In",
+        value: "vwb-zoom-in",
+    },
+    {
+        label: "Zoom Out",
+        value: "vwb-zoom-out",
+    },
+    {
+        label: "Bounce",
+        value: "vwb-bounce",
+    },
+    {
+        label: "Pulse",
+        value: "vwb-pulse",
+    },
+    {
+        label: "Shake",
+        value: "vwb-shake",
+    },
+    {
+        label: "Spin",
+        value: "vwb-spin",
+    },
+];
+
+function parseAnimation(value?: string) {
+    if (!value || value === "none") {
+        return ANIMATION_DEFAULTS;
+    }
+
+    const parts = value
+        .trim()
+        .split(/\s+/);
+
+    const preset =
+        parts[0] ||
+        ANIMATION_DEFAULTS.preset;
+
+    const timeParts = parts.filter(
+        (part) =>
+            /^\d*\.?\d+s$/.test(part)
+    );
+
+    const duration =
+        timeParts[0]
+            ? timeParts[0].replace("s", "")
+            : ANIMATION_DEFAULTS.duration;
+
+    const delay =
+        timeParts[1]
+            ? timeParts[1].replace("s", "")
+            : ANIMATION_DEFAULTS.delay;
+
+    const timing =
+        parts.find((part) =>
+            [
+                "ease",
+                "ease-in",
+                "ease-out",
+                "ease-in-out",
+                "linear",
+            ].includes(part)
+        ) ||
+        ANIMATION_DEFAULTS.timing;
+
+    const iteration =
+        parts.find(
+            (part) =>
+                part === "infinite" ||
+                /^\d+$/.test(part)
+        ) ||
+        ANIMATION_DEFAULTS.iteration;
+
+    const direction =
+        parts.find((part) =>
+            [
+                "normal",
+                "reverse",
+                "alternate",
+                "alternate-reverse",
+            ].includes(part)
+        ) ||
+        ANIMATION_DEFAULTS.direction;
+
+    const fill =
+        parts.find((part) =>
+            [
+                "none",
+                "forwards",
+                "backwards",
+                "both",
+            ].includes(part)
+        ) ||
+        ANIMATION_DEFAULTS.fill;
+
+    return {
+        preset,
+        duration,
+        timing,
+        delay,
+        iteration,
+        direction,
+        fill,
+    };
+}
+
+function buildAnimation(
+    preset: string,
+    duration: string,
+    timing: string,
+    delay: string,
+    iteration: string,
+    direction: string,
+    fill: string
+) {
+    const safeDuration =
+        duration.trim() || "1";
+
+    const safeDelay =
+        delay.trim() || "0";
+
+    const safeIteration =
+        iteration.trim() || "1";
+
+    return `${preset} ${safeDuration}s ${timing} ${safeDelay}s ${safeIteration} ${direction} ${fill}`;
+}
+
+function AnimationEditor({
+    value,
+    trigger,
+    onChange,
+    onTriggerChange,
+}: AnimationEditorProps) {
+    const parsed = parseAnimation(value);
+
+    const enabled =
+        Boolean(value && value !== "none");
+
+    function updateAnimation(
+        changes: Partial<typeof parsed>
+    ) {
+        const next = {
+            ...parsed,
+            ...changes,
+        };
+
+        onChange(
+            buildAnimation(
+                next.preset,
+                next.duration,
+                next.timing,
+                next.delay,
+                next.iteration,
+                next.direction,
+                next.fill
+            )
+        );
+    }
+
+    return (
+        <div className="space-y-4">
+            {/* ENABLE */}
+            <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-gray-700">
+                    Enable Animation
+                </span>
+
+                <button
+                    type="button"
+                    onClick={() => {
+                        if (enabled) {
+                            onChange("");
+                        } else {
+                            onChange(
+                                buildAnimation(
+                                    ANIMATION_DEFAULTS.preset,
+                                    ANIMATION_DEFAULTS.duration,
+                                    ANIMATION_DEFAULTS.timing,
+                                    ANIMATION_DEFAULTS.delay,
+                                    ANIMATION_DEFAULTS.iteration,
+                                    ANIMATION_DEFAULTS.direction,
+                                    ANIMATION_DEFAULTS.fill
+                                )
+                            );
+                        }
+                    }}
+                    className={`
+                        relative
+                        h-5
+                        w-9
+                        rounded-full
+                        transition-colors
+                        ${enabled
+                            ? "bg-blue-600"
+                            : "bg-gray-300"
+                        }
+                    `}
+                    aria-label="Toggle animation"
+                >
+                    <span
+                        className={`
+                            absolute
+                            top-0.5
+                            h-4
+                            w-4
+                            rounded-full
+                            bg-white
+                            shadow
+                            transition-transform
+                            ${enabled
+                                ? "translate-x-4"
+                                : "translate-x-0.5"
+                            }
+                        `}
+                    />
+                </button>
+            </div>
+
+            {enabled && (
+                <>
+                    {/* TRIGGER */}
+                    <StyleSelect
+                        label="Trigger"
+                        value={trigger || "load"}
+                        options={[
+                            {
+                                label: "On Load",
+                                value: "load",
+                            },
+                            {
+                                label: "On Hover",
+                                value: "hover",
+                            },
+                            {
+                                label: "On Click",
+                                value: "click",
+                            },
+                            {
+                                label: "On Focus",
+                                value: "focus",
+                            },
+                        ]}
+                        onChange={onTriggerChange}
+                    />
+
+                    {/* PRESET */}
+                    <StyleSelect
+                        label="Animation"
+                        value={parsed.preset}
+                        options={ANIMATION_PRESETS}
+                        onChange={(preset) =>
+                            updateAnimation({
+                                preset,
+                            })
+                        }
+                    />
+
+                    {/* DURATION */}
+                    <div>
+                        <label className="mb-1 block text-xs font-medium text-gray-600">
+                            Duration
+                        </label>
+
+                        <div className="flex items-center gap-2">
+                            <input
+                                type="number"
+                                min="0.05"
+                                max="20"
+                                step="0.05"
+                                value={
+                                    parsed.duration
+                                }
+                                onChange={(event) =>
+                                    updateAnimation({
+                                        duration:
+                                            event.target.value,
+                                    })
+                                }
+                                className="
+                                    w-full
+                                    rounded
+                                    border
+                                    px-2
+                                    py-1.5
+                                    text-sm
+                                    outline-none
+                                    focus:border-blue-500
+                                "
+                            />
+
+                            <span className="text-xs text-gray-400">
+                                sec
+                            </span>
+                        </div>
+                    </div>
+
+                    {/* TIMING */}
+                    <StyleSelect
+                        label="Timing"
+                        value={parsed.timing}
+                        options={[
+                            {
+                                label: "Ease",
+                                value: "ease",
+                            },
+                            {
+                                label: "Ease In",
+                                value: "ease-in",
+                            },
+                            {
+                                label: "Ease Out",
+                                value: "ease-out",
+                            },
+                            {
+                                label: "Ease In Out",
+                                value: "ease-in-out",
+                            },
+                            {
+                                label: "Linear",
+                                value: "linear",
+                            },
+                        ]}
+                        onChange={(timing) =>
+                            updateAnimation({
+                                timing,
+                            })
+                        }
+                    />
+
+                    {/* DELAY */}
+                    <div>
+                        <label className="mb-1 block text-xs font-medium text-gray-600">
+                            Delay
+                        </label>
+
+                        <div className="flex items-center gap-2">
+                            <input
+                                type="number"
+                                min="0"
+                                max="20"
+                                step="0.05"
+                                value={
+                                    parsed.delay
+                                }
+                                onChange={(event) =>
+                                    updateAnimation({
+                                        delay:
+                                            event.target.value,
+                                    })
+                                }
+                                className="
+                                    w-full
+                                    rounded
+                                    border
+                                    px-2
+                                    py-1.5
+                                    text-sm
+                                    outline-none
+                                    focus:border-blue-500
+                                "
+                            />
+
+                            <span className="text-xs text-gray-400">
+                                sec
+                            </span>
+                        </div>
+                    </div>
+
+                    {/* ITERATION */}
+                    <StyleSelect
+                        label="Repeat"
+                        value={
+                            parsed.iteration
+                        }
+                        options={[
+                            {
+                                label: "Once",
+                                value: "1",
+                            },
+                            {
+                                label: "2 Times",
+                                value: "2",
+                            },
+                            {
+                                label: "3 Times",
+                                value: "3",
+                            },
+                            {
+                                label: "5 Times",
+                                value: "5",
+                            },
+                            {
+                                label: "Infinite",
+                                value: "infinite",
+                            },
+                        ]}
+                        onChange={(iteration) =>
+                            updateAnimation({
+                                iteration,
+                            })
+                        }
+                    />
+
+                    {/* DIRECTION */}
+                    <StyleSelect
+                        label="Direction"
+                        value={
+                            parsed.direction
+                        }
+                        options={[
+                            {
+                                label: "Normal",
+                                value: "normal",
+                            },
+                            {
+                                label: "Reverse",
+                                value: "reverse",
+                            },
+                            {
+                                label: "Alternate",
+                                value: "alternate",
+                            },
+                            {
+                                label: "Alternate Reverse",
+                                value: "alternate-reverse",
+                            },
+                        ]}
+                        onChange={(direction) =>
+                            updateAnimation({
+                                direction,
+                            })
+                        }
+                    />
+
+                    {/* FILL */}
+                    <StyleSelect
+                        label="Fill Mode"
+                        value={parsed.fill}
+                        options={[
+                            {
+                                label: "None",
+                                value: "none",
+                            },
+                            {
+                                label: "Forwards",
+                                value: "forwards",
+                            },
+                            {
+                                label: "Backwards",
+                                value: "backwards",
+                            },
+                            {
+                                label: "Both",
+                                value: "both",
+                            },
+                        ]}
+                        onChange={(fill) =>
+                            updateAnimation({
+                                fill,
+                            })
+                        }
+                    />
+
+                    {/* PREVIEW */}
+                    <div className="rounded bg-gray-50 px-3 py-2 text-[11px] text-gray-500">
+                        <div className="mb-1 font-medium text-gray-600">
+                            CSS Preview
+                        </div>
+
+                        <code className="break-all">
+                            animation:{" "}
+                            {buildAnimation(
+                                parsed.preset,
+                                parsed.duration,
+                                parsed.timing,
+                                parsed.delay,
+                                parsed.iteration,
+                                parsed.direction,
+                                parsed.fill
+                            )}
+                        </code>
+                    </div>
+                </>
+            )}
+        </div>
+    );
+}
+
+/* =========================================================
+   RIGHT PANEL
+========================================================= */
+
+export default function RightPanel({
+    viewport,
+}: RightPanelProps) {
+    const project =
+        useEditorStore(
+            (state) => state.project
+        );
 
     const selectedNodeId =
         useEditorStore(
@@ -216,17 +1992,88 @@ export default function RightPanel() {
                 state.updateNode
         );
 
-    const updateNodeStyles =
+    const updateResponsiveNodeStyles =
         useEditorStore(
             (state) =>
-                state.updateNodeStyles
+                state.updateResponsiveNodeStyles
         );
 
-    const node = selectedNodeId
-        ? project.nodes[
+    const imageInputRef =
+        useRef<HTMLInputElement>(null);
+
+    const node =
         selectedNodeId
-        ]
-        : null;
+            ? project.nodes[
+            selectedNodeId
+            ]
+            : null;
+
+    /* =====================================================
+       RESPONSIVE STYLE VALUE
+    ===================================================== */
+
+    function getStyleValue(
+        property: string
+    ): string | undefined {
+        if (!node) {
+            return undefined;
+        }
+
+        const styles =
+            node.styles;
+
+        if (!styles) {
+            return undefined;
+        }
+
+        const stylesRecord =
+            styles as unknown as Record<
+                string,
+                unknown
+            >;
+
+        const responsive =
+            stylesRecord[
+            "responsive"
+            ] as
+            | Record<
+                string,
+                Record<
+                    string,
+                    unknown
+                >
+            >
+            | undefined;
+
+        const responsiveStyles =
+            responsive?.[
+            viewport
+            ];
+
+        const responsiveValue =
+            responsiveStyles?.[
+            property
+            ];
+
+        if (
+            typeof responsiveValue ===
+            "string"
+        ) {
+            return responsiveValue;
+        }
+
+        const baseValue =
+            stylesRecord[property];
+
+        return typeof baseValue ===
+            "string"
+            ? baseValue
+            : undefined;
+    }
+
+    /* =====================================================
+       RESPONSIVE STYLE UPDATE
+    ===================================================== */
 
     function updateStyle(
         property: string,
@@ -236,10 +2083,44 @@ export default function RightPanel() {
             return;
         }
 
-        updateNodeStyles(node.id, {
-            [property]: value,
-        });
+        updateResponsiveNodeStyles(
+            node.id,
+            viewport,
+            {
+                [property]: value,
+            }
+        );
     }
+
+    /* =====================================================
+       BASE STYLE UPDATE
+    ===================================================== */
+
+    function updateBaseStyle(
+        property: string,
+        value: string
+    ) {
+        if (!node) {
+            return;
+        }
+
+        const currentStyles =
+            node.styles ?? {};
+
+        updateNode(
+            node.id,
+            {
+                styles: {
+                    ...currentStyles,
+                    [property]: value,
+                },
+            }
+        );
+    }
+
+    /* =====================================================
+       CONTENT UPDATE
+    ===================================================== */
 
     function updateContent(
         value: string
@@ -248,24 +2129,192 @@ export default function RightPanel() {
             return;
         }
 
-        updateNode(node.id, {
-            content: value,
-        });
+        updateNode(
+            node.id,
+            {
+                content: value,
+            }
+        );
     }
 
+    /* =====================================================
+       IMAGE IMPORT
+    ===================================================== */
+
+    function handleImageImport(
+        event: React.ChangeEvent<HTMLInputElement>
+    ) {
+        const file =
+            event.target.files?.[0];
+
+        if (!file || !node) {
+            return;
+        }
+
+        if (
+            !file.type.startsWith(
+                "image/"
+            )
+        ) {
+            window.alert(
+                "Please select a valid image file."
+            );
+
+            event.target.value = "";
+
+            return;
+        }
+
+        const reader =
+            new FileReader();
+
+        reader.onload = () => {
+            const result =
+                reader.result;
+
+            if (
+                typeof result !==
+                "string"
+            ) {
+                return;
+            }
+
+            updateNode(
+                node.id,
+                {
+                    content: result,
+                }
+            );
+        };
+
+        reader.onerror = () => {
+            window.alert(
+                "Unable to read the selected image."
+            );
+        };
+
+        reader.readAsDataURL(file);
+
+        event.target.value = "";
+    }
+
+    /* =====================================================
+       REMOVE IMAGE
+    ===================================================== */
+
+    function removeImage() {
+        if (!node) {
+            return;
+        }
+
+        updateNode(
+            node.id,
+            {
+                content: "",
+            }
+        );
+    }
+
+    /* =====================================================
+       CURRENT DISPLAY
+    ===================================================== */
+
+    const currentDisplay =
+        getStyleValue(
+            "display"
+        );
+
+    /* =====================================================
+       PARENT NODE
+    ===================================================== */
+
+    const parentNode =
+        node?.parentId
+            ? project.nodes[
+            node.parentId
+            ]
+            : null;
+
+    const parentDisplay =
+        parentNode
+            ? (
+                parentNode.styles
+                    ?.responsive?.[
+                    viewport
+                ]?.display ??
+                parentNode.styles
+                    ?.display
+            )
+            : undefined;
+
+    const isFlexContainer =
+        currentDisplay ===
+        "flex";
+
+    const isFlexItem =
+        parentDisplay ===
+        "flex";
+
+    /* =====================================================
+       BACKGROUND TYPE
+    ===================================================== */
+
+    const currentBackgroundImage =
+        getStyleValue(
+            "backgroundImage"
+        );
+
+    const hasGradient =
+        !!currentBackgroundImage &&
+        (
+            currentBackgroundImage.includes(
+                "gradient("
+            )
+        );
+
+    /* =====================================================
+       RENDER
+    ===================================================== */
+
     return (
-        <aside className="flex w-80 shrink-0 flex-col border-l bg-white">
+        <aside className="
+            flex
+            w-80
+            shrink-0
+            flex-col
+            border-l
+            bg-white
+        ">
+
             {/* ==================================================
                 HEADER
             ================================================== */}
 
-            <div className="shrink-0 border-b px-4 py-4">
-                <h2 className="font-semibold">
+            <div className="
+                shrink-0
+                border-b
+                px-4
+                py-4
+            ">
+                <h2 className="
+                    font-semibold
+                ">
                     Properties
                 </h2>
 
-                <p className="mt-1 text-xs text-gray-500">
-                    Edit selected element
+                <p className="
+                    mt-1
+                    text-xs
+                    text-gray-500
+                ">
+                    Editing:{" "}
+                    <span className="
+                        font-medium
+                        capitalize
+                        text-gray-700
+                    ">
+                        {viewport}
+                    </span>
                 </p>
             </div>
 
@@ -274,9 +2323,12 @@ export default function RightPanel() {
             ================================================== */}
 
             {!node && (
-                <div className="p-5 text-sm text-gray-500">
-                    Select an element on the
-                    canvas.
+                <div className="
+                    p-5
+                    text-sm
+                    text-gray-500
+                ">
+                    Select an element on the canvas.
                 </div>
             )}
 
@@ -285,26 +2337,55 @@ export default function RightPanel() {
             ================================================== */}
 
             {node && (
-                <div className="flex-1 overflow-auto">
-                    <div className="space-y-5 p-4">
+                <div className="
+                    flex-1
+                    overflow-auto
+                ">
+                    <div className="
+                        space-y-5
+                        p-4
+                    ">
 
                         {/* ==================================================
                             ELEMENT
                         ================================================== */}
 
-                        <InspectorSection title="Element">
+                        <InspectorSection
+                            title="Element"
+                        >
+
                             <div>
-                                <label className="mb-1.5 block text-xs font-medium text-gray-500">
+                                <label className="
+                                    mb-1.5
+                                    block
+                                    text-xs
+                                    font-medium
+                                    text-gray-500
+                                ">
                                     Type
                                 </label>
 
-                                <div className="rounded-md border bg-gray-50 px-3 py-2 text-sm capitalize">
+                                <div className="
+                                    rounded-md
+                                    border
+                                    bg-gray-50
+                                    px-3
+                                    py-2
+                                    text-sm
+                                    capitalize
+                                ">
                                     {node.type}
                                 </div>
                             </div>
 
                             <div>
-                                <label className="mb-1.5 block text-xs font-medium text-gray-500">
+                                <label className="
+                                    mb-1.5
+                                    block
+                                    text-xs
+                                    font-medium
+                                    text-gray-500
+                                ">
                                     Name
                                 </label>
 
@@ -320,9 +2401,10 @@ export default function RightPanel() {
                                         updateNode(
                                             node.id,
                                             {
-                                                name: event
-                                                    .target
-                                                    .value,
+                                                name:
+                                                    event
+                                                        .target
+                                                        .value,
                                             }
                                         )
                                     }
@@ -340,19 +2422,27 @@ export default function RightPanel() {
                                     "
                                 />
                             </div>
+
                         </InspectorSection>
 
                         {/* ==================================================
                             CONTENT
                         ================================================== */}
 
-                        {(node.type ===
-                            "text" ||
-                            node.type ===
-                            "button") && (
-                                <InspectorSection title="Content">
+                        {(node.type === "text" ||
+                            node.type === "button") && (
+                                <InspectorSection
+                                    title="Content"
+                                >
+
                                     <div>
-                                        <label className="mb-1.5 block text-xs font-medium text-gray-500">
+                                        <label className="
+                                        mb-1.5
+                                        block
+                                        text-xs
+                                        font-medium
+                                        text-gray-500
+                                    ">
                                             {node.type ===
                                                 "text"
                                                 ? "Text"
@@ -389,6 +2479,7 @@ export default function RightPanel() {
                                         "
                                         />
                                     </div>
+
                                 </InspectorSection>
                             )}
 
@@ -396,168 +2487,300 @@ export default function RightPanel() {
                             IMAGE
                         ================================================== */}
 
-                        {node.type ===
-                            "image" && (
-                                <InspectorSection title="Image">
-                                    <StyleInput
-                                        label="Image Source"
-                                        value={
-                                            node.content
+                        {node.type === "image" && (
+                            <InspectorSection
+                                title="Image"
+                            >
+
+                                <div>
+                                    <label className="
+                                        mb-1.5
+                                        block
+                                        text-xs
+                                        font-medium
+                                        text-gray-500
+                                    ">
+                                        Image File
+                                    </label>
+
+                                    <input
+                                        ref={
+                                            imageInputRef
                                         }
-                                        placeholder="https://..."
+                                        type="file"
+                                        accept="image/*"
                                         onChange={
-                                            updateContent
+                                            handleImageImport
                                         }
+                                        className="hidden"
                                     />
 
-                                    <StyleInput
-                                        label="Alt Text"
-                                        value={
-                                            node.styles
-                                                ?.alt
+                                    <button
+                                        type="button"
+                                        onClick={() =>
+                                            imageInputRef.current?.click()
                                         }
-                                        placeholder="Image description"
-                                        onChange={(
-                                            value
-                                        ) =>
-                                            updateStyle(
-                                                "alt",
-                                                value
-                                            )
-                                        }
-                                    />
+                                        className="
+                                            w-full
+                                            rounded-md
+                                            border
+                                            border-blue-500
+                                            bg-blue-50
+                                            px-3
+                                            py-2.5
+                                            text-sm
+                                            font-medium
+                                            text-blue-600
+                                            transition
+                                            hover:bg-blue-100
+                                        "
+                                    >
+                                        Import Image from PC
+                                    </button>
+                                </div>
 
-                                    <StyleSelect
-                                        label="Object Fit"
-                                        value={
-                                            node.styles
-                                                ?.objectFit
+                                {node.content && (
+                                    <div className="
+                                        overflow-hidden
+                                        rounded-md
+                                        border
+                                        bg-gray-50
+                                    ">
+                                        <img
+                                            src={
+                                                node.content
+                                            }
+                                            alt={
+                                                node.styles
+                                                    ?.alt ||
+                                                "Image preview"
+                                            }
+                                            className="
+                                                max-h-48
+                                                w-full
+                                                object-contain
+                                            "
+                                        />
+                                    </div>
+                                )}
+
+                                <StyleInput
+                                    label="Image Source"
+                                    value={
+                                        node.content
+                                    }
+                                    placeholder="https://..."
+                                    onChange={
+                                        updateContent
+                                    }
+                                />
+
+                                {node.content && (
+                                    <button
+                                        type="button"
+                                        onClick={
+                                            removeImage
                                         }
-                                        options={[
-                                            {
-                                                label: "Default",
-                                                value: "",
-                                            },
-                                            {
-                                                label: "Contain",
-                                                value: "contain",
-                                            },
-                                            {
-                                                label: "Cover",
-                                                value: "cover",
-                                            },
-                                            {
-                                                label: "Fill",
-                                                value: "fill",
-                                            },
-                                            {
-                                                label: "None",
-                                                value: "none",
-                                            },
-                                        ]}
-                                        onChange={(
+                                        className="
+                                            w-full
+                                            rounded-md
+                                            border
+                                            border-red-200
+                                            px-3
+                                            py-2
+                                            text-sm
+                                            font-medium
+                                            text-red-500
+                                            transition
+                                            hover:bg-red-50
+                                        "
+                                    >
+                                        Remove Image
+                                    </button>
+                                )}
+
+                                <StyleInput
+                                    label="Alt Text"
+                                    value={
+                                        node.styles?.alt
+                                    }
+                                    placeholder="Image description"
+                                    onChange={(
+                                        value
+                                    ) =>
+                                        updateBaseStyle(
+                                            "alt",
                                             value
-                                        ) =>
-                                            updateStyle(
-                                                "objectFit",
-                                                value
-                                            )
-                                        }
-                                    />
-                                </InspectorSection>
-                            )}
+                                        )
+                                    }
+                                />
+
+                                <StyleSelect
+                                    label="Object Fit"
+                                    value={
+                                        getStyleValue(
+                                            "objectFit"
+                                        )
+                                    }
+                                    options={[
+                                        {
+                                            label:
+                                                "Default",
+                                            value:
+                                                "",
+                                        },
+                                        {
+                                            label:
+                                                "Contain",
+                                            value:
+                                                "contain",
+                                        },
+                                        {
+                                            label:
+                                                "Cover",
+                                            value:
+                                                "cover",
+                                        },
+                                        {
+                                            label:
+                                                "Fill",
+                                            value:
+                                                "fill",
+                                        },
+                                        {
+                                            label:
+                                                "None",
+                                            value:
+                                                "none",
+                                        },
+                                    ]}
+                                    onChange={(
+                                        value
+                                    ) =>
+                                        updateStyle(
+                                            "objectFit",
+                                            value
+                                        )
+                                    }
+                                />
+
+                            </InspectorSection>
+                        )}
 
                         {/* ==================================================
                             BUTTON LINK
                         ================================================== */}
 
-                        {node.type ===
-                            "button" && (
-                                <InspectorSection title="Link">
-                                    <StyleInput
-                                        label="URL"
-                                        value={
-                                            node.styles
-                                                ?.href
-                                        }
-                                        placeholder="https://example.com"
-                                        onChange={(
-                                            value
-                                        ) =>
-                                            updateStyle(
-                                                "href",
-                                                value
-                                            )
-                                        }
-                                    />
+                        {node.type === "button" && (
+                            <InspectorSection
+                                title="Link"
+                            >
 
-                                    <StyleSelect
-                                        label="Target"
-                                        value={
-                                            node.styles
-                                                ?.target
-                                        }
-                                        options={[
-                                            {
-                                                label: "Same Window",
-                                                value: "_self",
-                                            },
-                                            {
-                                                label: "New Tab",
-                                                value: "_blank",
-                                            },
-                                        ]}
-                                        onChange={(
+                                <StyleInput
+                                    label="URL"
+                                    value={
+                                        node.styles?.href
+                                    }
+                                    placeholder="https://example.com"
+                                    onChange={(
+                                        value
+                                    ) =>
+                                        updateBaseStyle(
+                                            "href",
                                             value
-                                        ) =>
-                                            updateStyle(
-                                                "target",
-                                                value
-                                            )
-                                        }
-                                    />
-                                </InspectorSection>
-                            )}
+                                        )
+                                    }
+                                />
+
+                                <StyleSelect
+                                    label="Target"
+                                    value={
+                                        node.styles?.target
+                                    }
+                                    options={[
+                                        {
+                                            label:
+                                                "Same Window",
+                                            value:
+                                                "_self",
+                                        },
+                                        {
+                                            label:
+                                                "New Tab",
+                                            value:
+                                                "_blank",
+                                        },
+                                    ]}
+                                    onChange={(
+                                        value
+                                    ) =>
+                                        updateBaseStyle(
+                                            "target",
+                                            value
+                                        )
+                                    }
+                                />
+
+                            </InspectorSection>
+                        )}
 
                         {/* ==================================================
                             LAYOUT
                         ================================================== */}
 
-                        <InspectorSection title="Layout">
+                        <InspectorSection
+                            title="Layout"
+                        >
+
                             <StyleSelect
                                 label="Display"
                                 value={
-                                    node.styles
-                                        ?.display
+                                    getStyleValue(
+                                        "display"
+                                    )
                                 }
                                 options={[
                                     {
-                                        label: "Default",
-                                        value: "",
+                                        label:
+                                            "Default",
+                                        value:
+                                            "",
                                     },
                                     {
-                                        label: "Block",
-                                        value: "block",
+                                        label:
+                                            "Block",
+                                        value:
+                                            "block",
                                     },
                                     {
-                                        label: "Inline",
-                                        value: "inline",
+                                        label:
+                                            "Inline",
+                                        value:
+                                            "inline",
                                     },
                                     {
-                                        label: "Inline Block",
-                                        value: "inline-block",
+                                        label:
+                                            "Inline Block",
+                                        value:
+                                            "inline-block",
                                     },
                                     {
-                                        label: "Flex",
-                                        value: "flex",
+                                        label:
+                                            "Flex",
+                                        value:
+                                            "flex",
                                     },
                                     {
-                                        label: "Grid",
-                                        value: "grid",
+                                        label:
+                                            "Grid",
+                                        value:
+                                            "grid",
                                     },
                                     {
-                                        label: "None",
-                                        value: "none",
+                                        label:
+                                            "None",
+                                        value:
+                                            "none",
                                     },
                                 ]}
                                 onChange={(
@@ -570,13 +2793,14 @@ export default function RightPanel() {
                                 }
                             />
 
-                            <StyleInput
+                            <DimensionInput
                                 label="Width"
                                 value={
-                                    node.styles
-                                        ?.width
+                                    getStyleValue(
+                                        "width"
+                                    )
                                 }
-                                placeholder="auto"
+                                placeholder="auto, 100%, 300px"
                                 onChange={(
                                     value
                                 ) =>
@@ -587,11 +2811,12 @@ export default function RightPanel() {
                                 }
                             />
 
-                            <StyleInput
+                            <DimensionInput
                                 label="Min Width"
                                 value={
-                                    node.styles
-                                        ?.minWidth
+                                    getStyleValue(
+                                        "minWidth"
+                                    )
                                 }
                                 placeholder="0px"
                                 onChange={(
@@ -604,11 +2829,12 @@ export default function RightPanel() {
                                 }
                             />
 
-                            <StyleInput
+                            <DimensionInput
                                 label="Max Width"
                                 value={
-                                    node.styles
-                                        ?.maxWidth
+                                    getStyleValue(
+                                        "maxWidth"
+                                    )
                                 }
                                 placeholder="none"
                                 onChange={(
@@ -621,13 +2847,14 @@ export default function RightPanel() {
                                 }
                             />
 
-                            <StyleInput
+                            <DimensionInput
                                 label="Height"
                                 value={
-                                    node.styles
-                                        ?.height
+                                    getStyleValue(
+                                        "height"
+                                    )
                                 }
-                                placeholder="auto"
+                                placeholder="auto, 100%, 300px"
                                 onChange={(
                                     value
                                 ) =>
@@ -638,11 +2865,12 @@ export default function RightPanel() {
                                 }
                             />
 
-                            <StyleInput
+                            <DimensionInput
                                 label="Min Height"
                                 value={
-                                    node.styles
-                                        ?.minHeight
+                                    getStyleValue(
+                                        "minHeight"
+                                    )
                                 }
                                 placeholder="0px"
                                 onChange={(
@@ -655,11 +2883,12 @@ export default function RightPanel() {
                                 }
                             />
 
-                            <StyleInput
+                            <DimensionInput
                                 label="Max Height"
                                 value={
-                                    node.styles
-                                        ?.maxHeight
+                                    getStyleValue(
+                                        "maxHeight"
+                                    )
                                 }
                                 placeholder="none"
                                 onChange={(
@@ -675,33 +2904,46 @@ export default function RightPanel() {
                             <StyleSelect
                                 label="Position"
                                 value={
-                                    node.styles
-                                        ?.position
+                                    getStyleValue(
+                                        "position"
+                                    )
                                 }
                                 options={[
                                     {
-                                        label: "Default",
-                                        value: "",
+                                        label:
+                                            "Default",
+                                        value:
+                                            "",
                                     },
                                     {
-                                        label: "Static",
-                                        value: "static",
+                                        label:
+                                            "Static",
+                                        value:
+                                            "static",
                                     },
                                     {
-                                        label: "Relative",
-                                        value: "relative",
+                                        label:
+                                            "Relative",
+                                        value:
+                                            "relative",
                                     },
                                     {
-                                        label: "Absolute",
-                                        value: "absolute",
+                                        label:
+                                            "Absolute",
+                                        value:
+                                            "absolute",
                                     },
                                     {
-                                        label: "Fixed",
-                                        value: "fixed",
+                                        label:
+                                            "Fixed",
+                                        value:
+                                            "fixed",
                                     },
                                     {
-                                        label: "Sticky",
-                                        value: "sticky",
+                                        label:
+                                            "Sticky",
+                                        value:
+                                            "sticky",
                                     },
                                 ]}
                                 onChange={(
@@ -714,440 +2956,641 @@ export default function RightPanel() {
                                 }
                             />
 
-                            <div className="grid grid-cols-2 gap-3">
-                                <StyleInput
-                                    label="Top"
-                                    value={
-                                        node.styles
-                                            ?.top
-                                    }
-                                    placeholder="auto"
-                                    onChange={(
-                                        value
-                                    ) =>
-                                        updateStyle(
-                                            "top",
-                                            value
-                                        )
-                                    }
-                                />
+                            {getStyleValue(
+                                "position"
+                            ) &&
+                                getStyleValue(
+                                    "position"
+                                ) !==
+                                "static" && (
+                                    <div className="
+                                        grid
+                                        grid-cols-2
+                                        gap-3
+                                    ">
 
-                                <StyleInput
-                                    label="Left"
-                                    value={
-                                        node.styles
-                                            ?.left
-                                    }
-                                    placeholder="auto"
-                                    onChange={(
-                                        value
-                                    ) =>
-                                        updateStyle(
-                                            "left",
-                                            value
-                                        )
-                                    }
-                                />
+                                        <DimensionInput
+                                            label="Top"
+                                            value={
+                                                getStyleValue(
+                                                    "top"
+                                                )
+                                            }
+                                            placeholder="auto, 10px"
+                                            onChange={(
+                                                value
+                                            ) =>
+                                                updateStyle(
+                                                    "top",
+                                                    value
+                                                )
+                                            }
+                                        />
 
-                                <StyleInput
-                                    label="Right"
-                                    value={
-                                        node.styles
-                                            ?.right
-                                    }
-                                    placeholder="auto"
-                                    onChange={(
-                                        value
-                                    ) =>
-                                        updateStyle(
-                                            "right",
-                                            value
-                                        )
-                                    }
-                                />
+                                        <DimensionInput
+                                            label="Left"
+                                            value={
+                                                getStyleValue(
+                                                    "left"
+                                                )
+                                            }
+                                            placeholder="auto, 10px"
+                                            onChange={(
+                                                value
+                                            ) =>
+                                                updateStyle(
+                                                    "left",
+                                                    value
+                                                )
+                                            }
+                                        />
 
-                                <StyleInput
-                                    label="Bottom"
-                                    value={
-                                        node.styles
-                                            ?.bottom
-                                    }
-                                    placeholder="auto"
-                                    onChange={(
-                                        value
-                                    ) =>
-                                        updateStyle(
-                                            "bottom",
-                                            value
-                                        )
-                                    }
-                                />
-                            </div>
+                                        <DimensionInput
+                                            label="Right"
+                                            value={
+                                                getStyleValue(
+                                                    "right"
+                                                )
+                                            }
+                                            placeholder="auto, 10px"
+                                            onChange={(
+                                                value
+                                            ) =>
+                                                updateStyle(
+                                                    "right",
+                                                    value
+                                                )
+                                            }
+                                        />
+
+                                        <DimensionInput
+                                            label="Bottom"
+                                            value={
+                                                getStyleValue(
+                                                    "bottom"
+                                                )
+                                            }
+                                            placeholder="auto, 10px"
+                                            onChange={(
+                                                value
+                                            ) =>
+                                                updateStyle(
+                                                    "bottom",
+                                                    value
+                                                )
+                                            }
+                                        />
+
+                                    </div>
+                                )}
+
                         </InspectorSection>
 
                         {/* ==================================================
-                            FLEX
+                            FLEX CONTAINER
                         ================================================== */}
 
-                        {node.styles
-                            ?.display ===
-                            "flex" && (
-                                <InspectorSection title="Flex Layout">
-                                    <StyleSelect
-                                        label="Direction"
-                                        value={
-                                            node.styles
-                                                ?.flexDirection
-                                        }
-                                        options={[
-                                            {
-                                                label: "Row",
-                                                value: "row",
-                                            },
-                                            {
-                                                label: "Row Reverse",
-                                                value: "row-reverse",
-                                            },
-                                            {
-                                                label: "Column",
-                                                value: "column",
-                                            },
-                                            {
-                                                label: "Column Reverse",
-                                                value: "column-reverse",
-                                            },
-                                        ]}
-                                        onChange={(
-                                            value
-                                        ) =>
-                                            updateStyle(
-                                                "flexDirection",
-                                                value
-                                            )
-                                        }
-                                    />
+                        {isFlexContainer && (
+                            <InspectorSection
+                                title="Flex Layout"
+                            >
 
-                                    <StyleSelect
-                                        label="Justify Content"
-                                        value={
-                                            node.styles
-                                                ?.justifyContent
-                                        }
-                                        options={[
-                                            {
-                                                label: "Start",
-                                                value: "flex-start",
-                                            },
-                                            {
-                                                label: "Center",
-                                                value: "center",
-                                            },
-                                            {
-                                                label: "End",
-                                                value: "flex-end",
-                                            },
-                                            {
-                                                label: "Space Between",
-                                                value: "space-between",
-                                            },
-                                            {
-                                                label: "Space Around",
-                                                value: "space-around",
-                                            },
-                                            {
-                                                label: "Space Evenly",
-                                                value: "space-evenly",
-                                            },
-                                        ]}
-                                        onChange={(
+                                <StyleSelect
+                                    label="Direction"
+                                    value={
+                                        getStyleValue(
+                                            "flexDirection"
+                                        )
+                                    }
+                                    options={[
+                                        {
+                                            label:
+                                                "Row",
+                                            value:
+                                                "row",
+                                        },
+                                        {
+                                            label:
+                                                "Row Reverse",
+                                            value:
+                                                "row-reverse",
+                                        },
+                                        {
+                                            label:
+                                                "Column",
+                                            value:
+                                                "column",
+                                        },
+                                        {
+                                            label:
+                                                "Column Reverse",
+                                            value:
+                                                "column-reverse",
+                                        },
+                                    ]}
+                                    onChange={(
+                                        value
+                                    ) =>
+                                        updateStyle(
+                                            "flexDirection",
                                             value
-                                        ) =>
-                                            updateStyle(
-                                                "justifyContent",
-                                                value
-                                            )
-                                        }
-                                    />
+                                        )
+                                    }
+                                />
 
-                                    <StyleSelect
-                                        label="Align Items"
-                                        value={
-                                            node.styles
-                                                ?.alignItems
-                                        }
-                                        options={[
-                                            {
-                                                label: "Stretch",
-                                                value: "stretch",
-                                            },
-                                            {
-                                                label: "Start",
-                                                value: "flex-start",
-                                            },
-                                            {
-                                                label: "Center",
-                                                value: "center",
-                                            },
-                                            {
-                                                label: "End",
-                                                value: "flex-end",
-                                            },
-                                        ]}
-                                        onChange={(
+                                <StyleSelect
+                                    label="Justify Content"
+                                    value={
+                                        getStyleValue(
+                                            "justifyContent"
+                                        )
+                                    }
+                                    options={[
+                                        {
+                                            label:
+                                                "Start",
+                                            value:
+                                                "flex-start",
+                                        },
+                                        {
+                                            label:
+                                                "Center",
+                                            value:
+                                                "center",
+                                        },
+                                        {
+                                            label:
+                                                "End",
+                                            value:
+                                                "flex-end",
+                                        },
+                                        {
+                                            label:
+                                                "Space Between",
+                                            value:
+                                                "space-between",
+                                        },
+                                        {
+                                            label:
+                                                "Space Around",
+                                            value:
+                                                "space-around",
+                                        },
+                                        {
+                                            label:
+                                                "Space Evenly",
+                                            value:
+                                                "space-evenly",
+                                        },
+                                    ]}
+                                    onChange={(
+                                        value
+                                    ) =>
+                                        updateStyle(
+                                            "justifyContent",
                                             value
-                                        ) =>
-                                            updateStyle(
-                                                "alignItems",
-                                                value
-                                            )
-                                        }
-                                    />
+                                        )
+                                    }
+                                />
 
-                                    <StyleInput
-                                        label="Gap"
-                                        value={
-                                            node.styles
-                                                ?.gap
-                                        }
-                                        placeholder="0px"
-                                        onChange={(
+                                <StyleSelect
+                                    label="Align Items"
+                                    value={
+                                        getStyleValue(
+                                            "alignItems"
+                                        )
+                                    }
+                                    options={[
+                                        {
+                                            label:
+                                                "Stretch",
+                                            value:
+                                                "stretch",
+                                        },
+                                        {
+                                            label:
+                                                "Start",
+                                            value:
+                                                "flex-start",
+                                        },
+                                        {
+                                            label:
+                                                "Center",
+                                            value:
+                                                "center",
+                                        },
+                                        {
+                                            label:
+                                                "End",
+                                            value:
+                                                "flex-end",
+                                        },
+                                        {
+                                            label:
+                                                "Baseline",
+                                            value:
+                                                "baseline",
+                                        },
+                                    ]}
+                                    onChange={(
+                                        value
+                                    ) =>
+                                        updateStyle(
+                                            "alignItems",
                                             value
-                                        ) =>
-                                            updateStyle(
-                                                "gap",
-                                                value
-                                            )
-                                        }
-                                    />
+                                        )
+                                    }
+                                />
 
-                                    <StyleSelect
-                                        label="Wrap"
-                                        value={
-                                            node.styles
-                                                ?.flexWrap
-                                        }
-                                        options={[
-                                            {
-                                                label: "No Wrap",
-                                                value: "nowrap",
-                                            },
-                                            {
-                                                label: "Wrap",
-                                                value: "wrap",
-                                            },
-                                            {
-                                                label: "Wrap Reverse",
-                                                value: "wrap-reverse",
-                                            },
-                                        ]}
-                                        onChange={(
+                                <DimensionInput
+                                    label="Gap"
+                                    value={
+                                        getStyleValue(
+                                            "gap"
+                                        )
+                                    }
+                                    placeholder="0px"
+                                    onChange={(
+                                        value
+                                    ) =>
+                                        updateStyle(
+                                            "gap",
                                             value
-                                        ) =>
-                                            updateStyle(
-                                                "flexWrap",
-                                                value
-                                            )
-                                        }
-                                    />
-                                </InspectorSection>
-                            )}
+                                        )
+                                    }
+                                />
+
+                                <StyleSelect
+                                    label="Wrap"
+                                    value={
+                                        getStyleValue(
+                                            "flexWrap"
+                                        )
+                                    }
+                                    options={[
+                                        {
+                                            label:
+                                                "No Wrap",
+                                            value:
+                                                "nowrap",
+                                        },
+                                        {
+                                            label:
+                                                "Wrap",
+                                            value:
+                                                "wrap",
+                                        },
+                                        {
+                                            label:
+                                                "Wrap Reverse",
+                                            value:
+                                                "wrap-reverse",
+                                        },
+                                    ]}
+                                    onChange={(
+                                        value
+                                    ) =>
+                                        updateStyle(
+                                            "flexWrap",
+                                            value
+                                        )
+                                    }
+                                />
+
+                                <StyleSelect
+                                    label="Align Content"
+                                    value={
+                                        getStyleValue(
+                                            "alignContent"
+                                        )
+                                    }
+                                    options={[
+                                        {
+                                            label:
+                                                "Default",
+                                            value:
+                                                "",
+                                        },
+                                        {
+                                            label:
+                                                "Start",
+                                            value:
+                                                "flex-start",
+                                        },
+                                        {
+                                            label:
+                                                "Center",
+                                            value:
+                                                "center",
+                                        },
+                                        {
+                                            label:
+                                                "End",
+                                            value:
+                                                "flex-end",
+                                        },
+                                        {
+                                            label:
+                                                "Stretch",
+                                            value:
+                                                "stretch",
+                                        },
+                                        {
+                                            label:
+                                                "Space Between",
+                                            value:
+                                                "space-between",
+                                        },
+                                        {
+                                            label:
+                                                "Space Around",
+                                            value:
+                                                "space-around",
+                                        },
+                                        {
+                                            label:
+                                                "Space Evenly",
+                                            value:
+                                                "space-evenly",
+                                        },
+                                    ]}
+                                    onChange={(
+                                        value
+                                    ) =>
+                                        updateStyle(
+                                            "alignContent",
+                                            value
+                                        )
+                                    }
+                                />
+
+                            </InspectorSection>
+                        )}
+
+                        {/* ==================================================
+                            FLEX ITEM
+                        ================================================== */}
+
+                        {isFlexItem && (
+                            <InspectorSection
+                                title="Flex Item"
+                            >
+
+                                <StyleInput
+                                    label="Flex Grow"
+                                    value={
+                                        getStyleValue(
+                                            "flexGrow"
+                                        )
+                                    }
+                                    placeholder="0"
+                                    type="number"
+                                    onChange={(
+                                        value
+                                    ) =>
+                                        updateStyle(
+                                            "flexGrow",
+                                            value
+                                        )
+                                    }
+                                />
+
+                                <StyleInput
+                                    label="Flex Shrink"
+                                    value={
+                                        getStyleValue(
+                                            "flexShrink"
+                                        )
+                                    }
+                                    placeholder="1"
+                                    type="number"
+                                    onChange={(
+                                        value
+                                    ) =>
+                                        updateStyle(
+                                            "flexShrink",
+                                            value
+                                        )
+                                    }
+                                />
+
+                                <DimensionInput
+                                    label="Flex Basis"
+                                    value={
+                                        getStyleValue(
+                                            "flexBasis"
+                                        )
+                                    }
+                                    placeholder="auto, 0, 100px"
+                                    onChange={(
+                                        value
+                                    ) =>
+                                        updateStyle(
+                                            "flexBasis",
+                                            value
+                                        )
+                                    }
+                                />
+
+                                <StyleSelect
+                                    label="Align Self"
+                                    value={
+                                        getStyleValue(
+                                            "alignSelf"
+                                        )
+                                    }
+                                    options={[
+                                        {
+                                            label:
+                                                "Auto",
+                                            value:
+                                                "auto",
+                                        },
+                                        {
+                                            label:
+                                                "Start",
+                                            value:
+                                                "flex-start",
+                                        },
+                                        {
+                                            label:
+                                                "Center",
+                                            value:
+                                                "center",
+                                        },
+                                        {
+                                            label:
+                                                "End",
+                                            value:
+                                                "flex-end",
+                                        },
+                                        {
+                                            label:
+                                                "Stretch",
+                                            value:
+                                                "stretch",
+                                        },
+                                        {
+                                            label:
+                                                "Baseline",
+                                            value:
+                                                "baseline",
+                                        },
+                                    ]}
+                                    onChange={(
+                                        value
+                                    ) =>
+                                        updateStyle(
+                                            "alignSelf",
+                                            value
+                                        )
+                                    }
+                                />
+
+                                <StyleInput
+                                    label="Order"
+                                    value={
+                                        getStyleValue(
+                                            "order"
+                                        )
+                                    }
+                                    placeholder="0"
+                                    type="number"
+                                    onChange={(
+                                        value
+                                    ) =>
+                                        updateStyle(
+                                            "order",
+                                            value
+                                        )
+                                    }
+                                />
+
+                            </InspectorSection>
+                        )}
 
                         {/* ==================================================
                             MARGIN
                         ================================================== */}
 
-                        <InspectorSection title="Margin">
-                            <div className="grid grid-cols-2 gap-3">
-                                <StyleInput
-                                    label="Top"
-                                    value={
-                                        node.styles
-                                            ?.marginTop
-                                    }
-                                    placeholder="0px"
-                                    onChange={(
-                                        value
-                                    ) =>
-                                        updateStyle(
-                                            "marginTop",
-                                            value
-                                        )
-                                    }
-                                />
+                        <InspectorSection
+                            title="Margin"
+                        >
 
-                                <StyleInput
-                                    label="Right"
-                                    value={
-                                        node.styles
-                                            ?.marginRight
-                                    }
-                                    placeholder="0px"
-                                    onChange={(
-                                        value
-                                    ) =>
-                                        updateStyle(
-                                            "marginRight",
-                                            value
-                                        )
-                                    }
-                                />
+                            <BoxModelEditor
+                                title="Margin"
+                                values={{
+                                    top:
+                                        getStyleValue(
+                                            "marginTop"
+                                        ),
+                                    right:
+                                        getStyleValue(
+                                            "marginRight"
+                                        ),
+                                    bottom:
+                                        getStyleValue(
+                                            "marginBottom"
+                                        ),
+                                    left:
+                                        getStyleValue(
+                                            "marginLeft"
+                                        ),
+                                }}
+                                onChange={(
+                                    side,
+                                    value
+                                ) => {
+                                    const propertyMap =
+                                        {
+                                            top:
+                                                "marginTop",
+                                            right:
+                                                "marginRight",
+                                            bottom:
+                                                "marginBottom",
+                                            left:
+                                                "marginLeft",
+                                        } as const;
 
-                                <StyleInput
-                                    label="Bottom"
-                                    value={
-                                        node.styles
-                                            ?.marginBottom
-                                    }
-                                    placeholder="0px"
-                                    onChange={(
+                                    updateStyle(
+                                        propertyMap[
+                                        side
+                                        ],
                                         value
-                                    ) =>
-                                        updateStyle(
-                                            "marginBottom",
-                                            value
-                                        )
-                                    }
-                                />
+                                    );
+                                }}
+                            />
 
-                                <StyleInput
-                                    label="Left"
-                                    value={
-                                        node.styles
-                                            ?.marginLeft
-                                    }
-                                    placeholder="0px"
-                                    onChange={(
-                                        value
-                                    ) =>
-                                        updateStyle(
-                                            "marginLeft",
-                                            value
-                                        )
-                                    }
-                                />
-                            </div>
                         </InspectorSection>
 
                         {/* ==================================================
                             PADDING
                         ================================================== */}
 
-                        <InspectorSection title="Padding">
-                            <div className="grid grid-cols-2 gap-3">
-                                <StyleInput
-                                    label="Top"
-                                    value={
-                                        node.styles
-                                            ?.paddingTop
-                                    }
-                                    placeholder="0px"
-                                    onChange={(
-                                        value
-                                    ) =>
-                                        updateStyle(
-                                            "paddingTop",
-                                            value
-                                        )
-                                    }
-                                />
+                        <InspectorSection
+                            title="Padding"
+                        >
 
-                                <StyleInput
-                                    label="Right"
-                                    value={
-                                        node.styles
-                                            ?.paddingRight
-                                    }
-                                    placeholder="0px"
-                                    onChange={(
-                                        value
-                                    ) =>
-                                        updateStyle(
-                                            "paddingRight",
-                                            value
-                                        )
-                                    }
-                                />
+                            <BoxModelEditor
+                                title="Padding"
+                                values={{
+                                    top:
+                                        getStyleValue(
+                                            "paddingTop"
+                                        ),
+                                    right:
+                                        getStyleValue(
+                                            "paddingRight"
+                                        ),
+                                    bottom:
+                                        getStyleValue(
+                                            "paddingBottom"
+                                        ),
+                                    left:
+                                        getStyleValue(
+                                            "paddingLeft"
+                                        ),
+                                }}
+                                onChange={(
+                                    side,
+                                    value
+                                ) => {
+                                    const propertyMap =
+                                        {
+                                            top:
+                                                "paddingTop",
+                                            right:
+                                                "paddingRight",
+                                            bottom:
+                                                "paddingBottom",
+                                            left:
+                                                "paddingLeft",
+                                        } as const;
 
-                                <StyleInput
-                                    label="Bottom"
-                                    value={
-                                        node.styles
-                                            ?.paddingBottom
-                                    }
-                                    placeholder="0px"
-                                    onChange={(
+                                    updateStyle(
+                                        propertyMap[
+                                        side
+                                        ],
                                         value
-                                    ) =>
-                                        updateStyle(
-                                            "paddingBottom",
-                                            value
-                                        )
-                                    }
-                                />
+                                    );
+                                }}
+                            />
 
-                                <StyleInput
-                                    label="Left"
-                                    value={
-                                        node.styles
-                                            ?.paddingLeft
-                                    }
-                                    placeholder="0px"
-                                    onChange={(
-                                        value
-                                    ) =>
-                                        updateStyle(
-                                            "paddingLeft",
-                                            value
-                                        )
-                                    }
-                                />
-                            </div>
                         </InspectorSection>
 
                         {/* ==================================================
-                            TYPOGRAPHY
-                        ================================================== */}
+    TYPOGRAPHY
+================================================== */}
 
                         <InspectorSection title="Typography">
-                            <StyleInput
-                                label="Font Family"
-                                value={
-                                    node.styles
-                                        ?.fontFamily
-                                }
-                                placeholder="Arial, sans-serif"
-                                onChange={(
-                                    value
-                                ) =>
-                                    updateStyle(
-                                        "fontFamily",
-                                        value
-                                    )
-                                }
-                            />
 
-                            <StyleInput
-                                label="Font Size"
-                                value={
-                                    node.styles
-                                        ?.fontSize
-                                }
-                                placeholder="16px"
-                                onChange={(
-                                    value
-                                ) =>
-                                    updateStyle(
-                                        "fontSize",
-                                        value
-                                    )
-                                }
-                            />
+                            {/* FONT FAMILY */}
 
                             <StyleSelect
-                                label="Font Weight"
+                                label="Font Family"
                                 value={
-                                    node.styles
-                                        ?.fontWeight
+                                    getStyleValue("fontFamily")
                                 }
                                 options={[
                                     {
@@ -1155,37 +3598,108 @@ export default function RightPanel() {
                                         value: "",
                                     },
                                     {
-                                        label: "Light",
+                                        label: "Arial",
+                                        value: "Arial, sans-serif",
+                                    },
+                                    {
+                                        label: "Inter",
+                                        value: "Inter, sans-serif",
+                                    },
+                                    {
+                                        label: "Roboto",
+                                        value: "Roboto, sans-serif",
+                                    },
+                                    {
+                                        label: "Poppins",
+                                        value: "Poppins, sans-serif",
+                                    },
+                                    {
+                                        label: "Georgia",
+                                        value: "Georgia, serif",
+                                    },
+                                    {
+                                        label: "Times New Roman",
+                                        value: '"Times New Roman", serif',
+                                    },
+                                    {
+                                        label: "Courier New",
+                                        value: '"Courier New", monospace',
+                                    },
+                                ]}
+                                onChange={(value) =>
+                                    updateStyle(
+                                        "fontFamily",
+                                        value
+                                    )
+                                }
+                            />
+
+                            {/* FONT SIZE */}
+
+                            <DimensionInput
+                                label="Font Size"
+                                value={
+                                    getStyleValue("fontSize")
+                                }
+                                placeholder="16px"
+                                onChange={(value) =>
+                                    updateStyle(
+                                        "fontSize",
+                                        value
+                                    )
+                                }
+                            />
+
+                            {/* FONT WEIGHT */}
+
+                            <StyleSelect
+                                label="Font Weight"
+                                value={
+                                    getStyleValue("fontWeight")
+                                }
+                                options={[
+                                    {
+                                        label: "Default",
+                                        value: "",
+                                    },
+                                    {
+                                        label: "Thin (100)",
+                                        value: "100",
+                                    },
+                                    {
+                                        label: "Extra Light (200)",
+                                        value: "200",
+                                    },
+                                    {
+                                        label: "Light (300)",
                                         value: "300",
                                     },
                                     {
-                                        label: "Normal",
+                                        label: "Normal (400)",
                                         value: "400",
                                     },
                                     {
-                                        label: "Medium",
+                                        label: "Medium (500)",
                                         value: "500",
                                     },
                                     {
-                                        label: "Semibold",
+                                        label: "Semi Bold (600)",
                                         value: "600",
                                     },
                                     {
-                                        label: "Bold",
+                                        label: "Bold (700)",
                                         value: "700",
                                     },
                                     {
-                                        label: "Extra Bold",
+                                        label: "Extra Bold (800)",
                                         value: "800",
                                     },
                                     {
-                                        label: "Black",
+                                        label: "Black (900)",
                                         value: "900",
                                     },
                                 ]}
-                                onChange={(
-                                    value
-                                ) =>
+                                onChange={(value) =>
                                     updateStyle(
                                         "fontWeight",
                                         value
@@ -1193,16 +3707,40 @@ export default function RightPanel() {
                                 }
                             />
 
-                            <StyleInput
+                            {/* LINE HEIGHT */}
+
+                            <StyleSelect
                                 label="Line Height"
                                 value={
-                                    node.styles
-                                        ?.lineHeight
+                                    getStyleValue("lineHeight")
                                 }
-                                placeholder="1.5"
-                                onChange={(
-                                    value
-                                ) =>
+                                options={[
+                                    {
+                                        label: "Default",
+                                        value: "",
+                                    },
+                                    {
+                                        label: "Normal",
+                                        value: "normal",
+                                    },
+                                    {
+                                        label: "Tight (1.2)",
+                                        value: "1.2",
+                                    },
+                                    {
+                                        label: "Normal (1.5)",
+                                        value: "1.5",
+                                    },
+                                    {
+                                        label: "Relaxed (1.75)",
+                                        value: "1.75",
+                                    },
+                                    {
+                                        label: "Double (2)",
+                                        value: "2",
+                                    },
+                                ]}
+                                onChange={(value) =>
                                     updateStyle(
                                         "lineHeight",
                                         value
@@ -1210,16 +3748,60 @@ export default function RightPanel() {
                                 }
                             />
 
-                            <StyleInput
+                            {/* CUSTOM LINE HEIGHT */}
+
+                            <DimensionInput
+                                label="Custom Line Height"
+                                value={
+                                    getStyleValue("lineHeight")
+                                }
+                                placeholder="1.5, 24px"
+                                onChange={(value) =>
+                                    updateStyle(
+                                        "lineHeight",
+                                        value
+                                    )
+                                }
+                            />
+
+                            {/* LETTER SPACING */}
+
+                            <StyleSelect
                                 label="Letter Spacing"
                                 value={
-                                    node.styles
-                                        ?.letterSpacing
+                                    getStyleValue("letterSpacing")
                                 }
-                                placeholder="0px"
-                                onChange={(
-                                    value
-                                ) =>
+                                options={[
+                                    {
+                                        label: "Default",
+                                        value: "",
+                                    },
+                                    {
+                                        label: "Tight",
+                                        value: "-0.05em",
+                                    },
+                                    {
+                                        label: "Slightly Tight",
+                                        value: "-0.025em",
+                                    },
+                                    {
+                                        label: "Normal",
+                                        value: "normal",
+                                    },
+                                    {
+                                        label: "Slightly Wide",
+                                        value: "0.025em",
+                                    },
+                                    {
+                                        label: "Wide",
+                                        value: "0.05em",
+                                    },
+                                    {
+                                        label: "Very Wide",
+                                        value: "0.1em",
+                                    },
+                                ]}
+                                onChange={(value) =>
                                     updateStyle(
                                         "letterSpacing",
                                         value
@@ -1227,11 +3809,30 @@ export default function RightPanel() {
                                 }
                             />
 
+                            {/* CUSTOM LETTER SPACING */}
+
+                            <DimensionInput
+                                label="Custom Letter Spacing"
+                                value={
+                                    getStyleValue(
+                                        "letterSpacing"
+                                    )
+                                }
+                                placeholder="0px"
+                                onChange={(value) =>
+                                    updateStyle(
+                                        "letterSpacing",
+                                        value
+                                    )
+                                }
+                            />
+
+                            {/* TEXT ALIGN */}
+
                             <StyleSelect
                                 label="Text Align"
                                 value={
-                                    node.styles
-                                        ?.textAlign
+                                    getStyleValue("textAlign")
                                 }
                                 options={[
                                     {
@@ -1255,9 +3856,7 @@ export default function RightPanel() {
                                         value: "justify",
                                     },
                                 ]}
-                                onChange={(
-                                    value
-                                ) =>
+                                onChange={(value) =>
                                     updateStyle(
                                         "textAlign",
                                         value
@@ -1265,20 +3864,19 @@ export default function RightPanel() {
                                 }
                             />
 
+                            {/* TEXT TRANSFORM */}
+
                             <StyleSelect
                                 label="Text Transform"
                                 value={
-                                    node.styles
-                                        ?.textTransform
+                                    getStyleValue(
+                                        "textTransform"
+                                    )
                                 }
                                 options={[
                                     {
-                                        label: "Default",
-                                        value: "",
-                                    },
-                                    {
                                         label: "None",
-                                        value: "none",
+                                        value: "",
                                     },
                                     {
                                         label: "Uppercase",
@@ -1293,27 +3891,67 @@ export default function RightPanel() {
                                         value: "capitalize",
                                     },
                                 ]}
-                                onChange={(
-                                    value
-                                ) =>
+                                onChange={(value) =>
                                     updateStyle(
                                         "textTransform",
                                         value
                                     )
                                 }
                             />
+
+                            {/* TEXT DECORATION */}
+
+                            <StyleSelect
+                                label="Text Decoration"
+                                value={
+                                    getStyleValue(
+                                        "textDecoration"
+                                    )
+                                }
+                                options={[
+                                    {
+                                        label: "None",
+                                        value: "",
+                                    },
+                                    {
+                                        label: "Underline",
+                                        value: "underline",
+                                    },
+                                    {
+                                        label: "Line Through",
+                                        value: "line-through",
+                                    },
+                                    {
+                                        label: "Overline",
+                                        value: "overline",
+                                    },
+                                ]}
+                                onChange={(value) =>
+                                    updateStyle(
+                                        "textDecoration",
+                                        value
+                                    )
+                                }
+                            />
+
                         </InspectorSection>
 
                         {/* ==================================================
-                            COLORS
+                            COLORS & BACKGROUND
                         ================================================== */}
 
-                        <InspectorSection title="Colors">
+                        <InspectorSection
+                            title="Colors & Background"
+                        >
+
+                            {/* TEXT COLOR */}
+
                             <ColorInput
                                 label="Text Color"
                                 value={
-                                    node.styles
-                                        ?.color
+                                    getStyleValue(
+                                        "color"
+                                    )
                                 }
                                 placeholder="#111111"
                                 onChange={(
@@ -1326,30 +3964,103 @@ export default function RightPanel() {
                                 }
                             />
 
-                            <ColorInput
-                                label="Background"
+                            {/* BACKGROUND TYPE */}
+
+                            <StyleSelect
+                                label="Background Type"
                                 value={
-                                    node.styles
-                                        ?.backgroundColor
+                                    hasGradient
+                                        ? "gradient"
+                                        : "solid"
                                 }
-                                placeholder="#ffffff"
+                                options={[
+                                    {
+                                        label:
+                                            "Solid Color",
+                                        value:
+                                            "solid",
+                                    },
+                                    {
+                                        label:
+                                            "Gradient",
+                                        value:
+                                            "gradient",
+                                    },
+                                ]}
                                 onChange={(
                                     value
-                                ) =>
-                                    updateStyle(
-                                        "backgroundColor",
-                                        value
-                                    )
-                                }
+                                ) => {
+                                    if (
+                                        value ===
+                                        "gradient"
+                                    ) {
+                                        updateStyle(
+                                            "backgroundImage",
+                                            "linear-gradient(90deg, #ff0000, #0000ff)"
+                                        );
+                                    } else {
+                                        updateStyle(
+                                            "backgroundImage",
+                                            ""
+                                        );
+                                    }
+                                }}
                             />
+
+                            {/* SOLID COLOR */}
+
+                            {!hasGradient && (
+                                <ColorInput
+                                    label="Background Color"
+                                    value={
+                                        getStyleValue(
+                                            "backgroundColor"
+                                        )
+                                    }
+                                    placeholder="#ffffff"
+                                    onChange={(
+                                        value
+                                    ) =>
+                                        updateStyle(
+                                            "backgroundColor",
+                                            value
+                                        )
+                                    }
+                                />
+                            )}
+
+                            {/* GRADIENT */}
+
+                            {hasGradient && (
+                                <GradientBuilder
+                                    value={
+                                        currentBackgroundImage
+                                    }
+                                    onChange={(
+                                        value
+                                    ) =>
+                                        updateStyle(
+                                            "backgroundImage",
+                                            value
+                                        )
+                                    }
+                                />
+                            )}
+
+                            {/* OPACITY */}
 
                             <StyleInput
                                 label="Opacity"
                                 value={
-                                    node.styles
-                                        ?.opacity
+                                    getStyleValue(
+                                        "opacity"
+                                    )
                                 }
                                 placeholder="1"
+                                type="number"
+                                min="0"
+                                max="1"
+                                step="0.01"
                                 onChange={(
                                     value
                                 ) =>
@@ -1359,39 +4070,54 @@ export default function RightPanel() {
                                     )
                                 }
                             />
+
                         </InspectorSection>
 
                         {/* ==================================================
                             BORDER
                         ================================================== */}
 
-                        <InspectorSection title="Border">
+                        <InspectorSection
+                            title="Border"
+                        >
+
                             <StyleSelect
                                 label="Style"
                                 value={
-                                    node.styles
-                                        ?.borderStyle
+                                    getStyleValue(
+                                        "borderStyle"
+                                    )
                                 }
                                 options={[
                                     {
-                                        label: "None",
-                                        value: "none",
+                                        label:
+                                            "None",
+                                        value:
+                                            "none",
                                     },
                                     {
-                                        label: "Solid",
-                                        value: "solid",
+                                        label:
+                                            "Solid",
+                                        value:
+                                            "solid",
                                     },
                                     {
-                                        label: "Dashed",
-                                        value: "dashed",
+                                        label:
+                                            "Dashed",
+                                        value:
+                                            "dashed",
                                     },
                                     {
-                                        label: "Dotted",
-                                        value: "dotted",
+                                        label:
+                                            "Dotted",
+                                        value:
+                                            "dotted",
                                     },
                                     {
-                                        label: "Double",
-                                        value: "double",
+                                        label:
+                                            "Double",
+                                        value:
+                                            "double",
                                     },
                                 ]}
                                 onChange={(
@@ -1404,11 +4130,12 @@ export default function RightPanel() {
                                 }
                             />
 
-                            <StyleInput
+                            <DimensionInput
                                 label="Width"
                                 value={
-                                    node.styles
-                                        ?.borderWidth
+                                    getStyleValue(
+                                        "borderWidth"
+                                    )
                                 }
                                 placeholder="0px"
                                 onChange={(
@@ -1424,8 +4151,9 @@ export default function RightPanel() {
                             <ColorInput
                                 label="Color"
                                 value={
-                                    node.styles
-                                        ?.borderColor
+                                    getStyleValue(
+                                        "borderColor"
+                                    )
                                 }
                                 placeholder="#000000"
                                 onChange={(
@@ -1438,11 +4166,12 @@ export default function RightPanel() {
                                 }
                             />
 
-                            <StyleInput
+                            <DimensionInput
                                 label="Radius"
                                 value={
-                                    node.styles
-                                        ?.borderRadius
+                                    getStyleValue(
+                                        "borderRadius"
+                                    )
                                 }
                                 placeholder="0px"
                                 onChange={(
@@ -1454,39 +4183,403 @@ export default function RightPanel() {
                                     )
                                 }
                             />
+
                         </InspectorSection>
+
+                        {/* ==================================================
+    TRANSFORM
+================================================== */}
+
+                        <InspectorSection title="Transform">
+
+                            {/* ROTATE */}
+
+                            <TransformInput
+                                label="Rotate"
+                                value={
+                                    (() => {
+                                        const transform =
+                                            getStyleValue(
+                                                "transform"
+                                            );
+
+                                        const match =
+                                            transform?.match(
+                                                /rotate\((-?\d+(?:\.\d+)?)deg\)/
+                                            );
+
+                                        return match?.[1] || "0";
+                                    })()
+                                }
+                                unit="deg"
+                                min={-360}
+                                max={360}
+                                onChange={(value) => {
+                                    const transform =
+                                        getStyleValue(
+                                            "transform"
+                                        ) || "";
+
+                                    const withoutRotate =
+                                        transform
+                                            .replace(
+                                                /rotate\((-?\d+(?:\.\d+)?)deg\)/,
+                                                ""
+                                            )
+                                            .trim();
+
+                                    updateStyle(
+                                        "transform",
+                                        `${withoutRotate} rotate(${value || 0}deg)`.trim()
+                                    );
+                                }}
+                            />
+
+                            {/* SCALE */}
+
+                            <TransformInput
+                                label="Scale"
+                                value={
+                                    (() => {
+                                        const transform =
+                                            getStyleValue(
+                                                "transform"
+                                            );
+
+                                        const match =
+                                            transform?.match(
+                                                /scale\((-?\d+(?:\.\d+)?)\)/
+                                            );
+
+                                        if (!match) {
+                                            return "1";
+                                        }
+
+                                        return match[1];
+                                    })()
+                                }
+                                unit="×"
+                                min={0}
+                                max={5}
+                                step={0.1}
+                                onChange={(value) => {
+                                    const transform =
+                                        getStyleValue(
+                                            "transform"
+                                        ) || "";
+
+                                    const withoutScale =
+                                        transform
+                                            .replace(
+                                                /scale\((-?\d+(?:\.\d+)?)\)/,
+                                                ""
+                                            )
+                                            .trim();
+
+                                    updateStyle(
+                                        "transform",
+                                        `${withoutScale} scale(${value || 1})`.trim()
+                                    );
+                                }}
+                            />
+
+                            {/* TRANSLATE X / Y */}
+
+                            <div className="
+        grid
+        grid-cols-2
+        gap-3
+    ">
+
+                                <TransformInput
+                                    label="Move X"
+                                    value={
+                                        (() => {
+                                            const transform =
+                                                getStyleValue(
+                                                    "transform"
+                                                );
+
+                                            const match =
+                                                transform?.match(
+                                                    /translateX\((-?\d+(?:\.\d+)?)px\)/
+                                                );
+
+                                            return match?.[1] || "0";
+                                        })()
+                                    }
+                                    unit="px"
+                                    onChange={(value) => {
+                                        const transform =
+                                            getStyleValue(
+                                                "transform"
+                                            ) || "";
+
+                                        const withoutTranslateX =
+                                            transform
+                                                .replace(
+                                                    /translateX\((-?\d+(?:\.\d+)?)px\)/,
+                                                    ""
+                                                )
+                                                .trim();
+
+                                        updateStyle(
+                                            "transform",
+                                            `${withoutTranslateX} translateX(${value || 0}px)`.trim()
+                                        );
+                                    }}
+                                />
+
+                                <TransformInput
+                                    label="Move Y"
+                                    value={
+                                        (() => {
+                                            const transform =
+                                                getStyleValue(
+                                                    "transform"
+                                                );
+
+                                            const match =
+                                                transform?.match(
+                                                    /translateY\((-?\d+(?:\.\d+)?)px\)/
+                                                );
+
+                                            return match?.[1] || "0";
+                                        })()
+                                    }
+                                    unit="px"
+                                    onChange={(value) => {
+                                        const transform =
+                                            getStyleValue(
+                                                "transform"
+                                            ) || "";
+
+                                        const withoutTranslateY =
+                                            transform
+                                                .replace(
+                                                    /translateY\((-?\d+(?:\.\d+)?)px\)/,
+                                                    ""
+                                                )
+                                                .trim();
+
+                                        updateStyle(
+                                            "transform",
+                                            `${withoutTranslateY} translateY(${value || 0}px)`.trim()
+                                        );
+                                    }}
+                                />
+
+                            </div>
+
+                            {/* SKEW X / Y */}
+
+                            <div className="
+        grid
+        grid-cols-2
+        gap-3
+    ">
+
+                                <TransformInput
+                                    label="Skew X"
+                                    value={
+                                        (() => {
+                                            const transform =
+                                                getStyleValue(
+                                                    "transform"
+                                                );
+
+                                            const match =
+                                                transform?.match(
+                                                    /skewX\((-?\d+(?:\.\d+)?)deg\)/
+                                                );
+
+                                            return match?.[1] || "0";
+                                        })()
+                                    }
+                                    unit="deg"
+                                    min={-90}
+                                    max={90}
+                                    onChange={(value) => {
+                                        const transform =
+                                            getStyleValue(
+                                                "transform"
+                                            ) || "";
+
+                                        const withoutSkewX =
+                                            transform
+                                                .replace(
+                                                    /skewX\((-?\d+(?:\.\d+)?)deg\)/,
+                                                    ""
+                                                )
+                                                .trim();
+
+                                        updateStyle(
+                                            "transform",
+                                            `${withoutSkewX} skewX(${value || 0}deg)`.trim()
+                                        );
+                                    }}
+                                />
+
+                                <TransformInput
+                                    label="Skew Y"
+                                    value={
+                                        (() => {
+                                            const transform =
+                                                getStyleValue(
+                                                    "transform"
+                                                ) || "";
+
+                                            const match =
+                                                transform.match(
+                                                    /skewY\((-?\d+(?:\.\d+)?)deg\)/
+                                                );
+
+                                            return match?.[1] || "0";
+                                        })()
+                                    }
+                                    unit="deg"
+                                    min={-90}
+                                    max={90}
+                                    onChange={(value) => {
+                                        const transform =
+                                            getStyleValue(
+                                                "transform"
+                                            ) || "";
+
+                                        const withoutSkewY =
+                                            transform
+                                                .replace(
+                                                    /skewY\((-?\d+(?:\.\d+)?)deg\)/,
+                                                    ""
+                                                )
+                                                .trim();
+
+                                        updateStyle(
+                                            "transform",
+                                            `${withoutSkewY} skewY(${value || 0}deg)`.trim()
+                                        );
+                                    }}
+                                />
+
+                            </div>
+
+                            {/* RESET */}
+
+                            <button
+                                type="button"
+                                onClick={() =>
+                                    updateStyle(
+                                        "transform",
+                                        ""
+                                    )
+                                }
+                                className="
+            w-full
+            rounded-md
+            border
+            px-3
+            py-2
+            text-sm
+            font-medium
+            text-gray-500
+            transition
+            hover:bg-gray-50
+        "
+                            >
+                                Reset Transform
+                            </button>
+
+                        </InspectorSection>
+
+
+                        {/* ==================================================
+    TRANSITION
+================================================== */}
+
+                        <InspectorSection title="Transition">
+                            <TransitionEditor
+                                value={getStyleValue("transition")}
+                                onChange={(value) =>
+                                    updateStyle(
+                                        "transition",
+                                        value
+                                    )
+                                }
+                            />
+                        </InspectorSection>
+
+
+                        {/* ==================================================
+    ANIMATION
+================================================== */}
+
+                        <InspectorSection title="Animation">
+                            <AnimationEditor
+                                value={getStyleValue("animation")}
+                                trigger={getStyleValue("animationTrigger")}
+                                onChange={(value) =>
+                                    updateStyle(
+                                        "animation",
+                                        value
+                                    )
+                                }
+                                onTriggerChange={(value) =>
+                                    updateStyle(
+                                        "animationTrigger",
+                                        value
+                                    )
+                                }
+                            />
+                        </InspectorSection>
+
+
+
 
                         {/* ==================================================
                             SHADOW
                         ================================================== */}
 
-                        <InspectorSection title="Shadow">
+                        <InspectorSection
+                            title="Shadow"
+                        >
+
                             <StyleSelect
                                 label="Preset"
                                 value={
-                                    node.styles
-                                        ?.boxShadow
+                                    getStyleValue(
+                                        "boxShadow"
+                                    )
                                 }
                                 options={[
                                     {
-                                        label: "None",
-                                        value: "none",
+                                        label:
+                                            "None",
+                                        value:
+                                            "none",
                                     },
                                     {
-                                        label: "Small",
-                                        value: "0 1px 3px rgba(0,0,0,0.12)",
+                                        label:
+                                            "Small",
+                                        value:
+                                            "0 1px 3px rgba(0,0,0,0.12)",
                                     },
                                     {
-                                        label: "Medium",
-                                        value: "0 4px 12px rgba(0,0,0,0.15)",
+                                        label:
+                                            "Medium",
+                                        value:
+                                            "0 4px 12px rgba(0,0,0,0.15)",
                                     },
                                     {
-                                        label: "Large",
-                                        value: "0 10px 30px rgba(0,0,0,0.18)",
+                                        label:
+                                            "Large",
+                                        value:
+                                            "0 10px 30px rgba(0,0,0,0.18)",
                                     },
                                     {
-                                        label: "Extra Large",
-                                        value: "0 20px 50px rgba(0,0,0,0.2)",
+                                        label:
+                                            "Extra Large",
+                                        value:
+                                            "0 20px 50px rgba(0,0,0,0.2)",
                                     },
                                 ]}
                                 onChange={(
@@ -1498,39 +4591,54 @@ export default function RightPanel() {
                                     )
                                 }
                             />
+
                         </InspectorSection>
 
                         {/* ==================================================
                             OVERFLOW
                         ================================================== */}
 
-                        <InspectorSection title="Overflow">
+                        <InspectorSection
+                            title="Overflow"
+                        >
+
                             <StyleSelect
                                 label="Overflow"
                                 value={
-                                    node.styles
-                                        ?.overflow
+                                    getStyleValue(
+                                        "overflow"
+                                    )
                                 }
                                 options={[
                                     {
-                                        label: "Default",
-                                        value: "",
+                                        label:
+                                            "Default",
+                                        value:
+                                            "",
                                     },
                                     {
-                                        label: "Visible",
-                                        value: "visible",
+                                        label:
+                                            "Visible",
+                                        value:
+                                            "visible",
                                     },
                                     {
-                                        label: "Hidden",
-                                        value: "hidden",
+                                        label:
+                                            "Hidden",
+                                        value:
+                                            "hidden",
                                     },
                                     {
-                                        label: "Auto",
-                                        value: "auto",
+                                        label:
+                                            "Auto",
+                                        value:
+                                            "auto",
                                     },
                                     {
-                                        label: "Scroll",
-                                        value: "scroll",
+                                        label:
+                                            "Scroll",
+                                        value:
+                                            "scroll",
                                     },
                                 ]}
                                 onChange={(
@@ -1542,18 +4650,23 @@ export default function RightPanel() {
                                     )
                                 }
                             />
+
                         </InspectorSection>
 
                         {/* ==================================================
-                            Z INDEX
+                            ADVANCED
                         ================================================== */}
 
-                        <InspectorSection title="Advanced">
+                        <InspectorSection
+                            title="Advanced"
+                        >
+
                             <StyleInput
                                 label="Z Index"
                                 value={
-                                    node.styles
-                                        ?.zIndex
+                                    getStyleValue(
+                                        "zIndex"
+                                    )
                                 }
                                 placeholder="auto"
                                 onChange={(
@@ -1569,8 +4682,9 @@ export default function RightPanel() {
                             <StyleInput
                                 label="Cursor"
                                 value={
-                                    node.styles
-                                        ?.cursor
+                                    getStyleValue(
+                                        "cursor"
+                                    )
                                 }
                                 placeholder="default"
                                 onChange={(
@@ -1582,10 +4696,13 @@ export default function RightPanel() {
                                     )
                                 }
                             />
+
                         </InspectorSection>
+
                     </div>
                 </div>
             )}
+
         </aside>
     );
 }
