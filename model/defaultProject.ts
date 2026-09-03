@@ -11,6 +11,8 @@ export const defaultProject: Project = {
 
     designTokens: {},
 
+    reusableStyles: {},
+
     pages: {
         "page-home": {
             id: "page-home",

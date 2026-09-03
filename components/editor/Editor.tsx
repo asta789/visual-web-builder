@@ -8,6 +8,9 @@ import Canvas from "./Canvas";
 import RightPanel from "./RightPanel";
 import { DesignTokenManager } from "./design-tokens";
 import { MultiSelectionBar } from "./multi-select";
+import { ReusableStyleManager } from "./reusable-styles";
+import { mergeReusableStyleClasses } from "./reusable-styles/styleClassUtils";
+import { createTokenVariableMap } from "./design-tokens/tokenUtils";
 
 import { useEditorStore } from "@/store/editorStore";
 import {
@@ -22,6 +25,7 @@ import {
     Project,
     ProjectNode,
 } from "@/model/type";
+import { defaultProject } from "@/model/defaultProject";
 
 /* =========================================================
    DEVTOOLS STORE ACCESS
@@ -107,10 +111,27 @@ function cssPropertyName(
  * including desktop, rather than directly to node.styles.
  */
 function getPreviewResolvedStyles(
+    project: Project,
     node: ProjectNode,
     viewport: ViewportType
 ) {
+    /*
+     * Preview must resolve the exact same style layers as Canvas:
+     *
+     * 1. reusable style classes
+     * 2. node-local base styles
+     * 3. reusable class responsive styles
+     * 4. node-local responsive styles
+     *
+     * Node-local styles intentionally win over reusable classes.
+     */
+    const classStyles = mergeReusableStyleClasses(
+        node,
+        project.reusableStyles
+    );
+
     const baseStyles = {
+        ...(classStyles ?? {}),
         ...(node.styles ?? {}),
     };
 
@@ -120,20 +141,49 @@ function getPreviewResolvedStyles(
         }
     ).responsive;
 
+    const reusableResponsiveStyles =
+        classStyles?.responsive?.[viewport] ?? {};
+
+    const nodeResponsiveStyles =
+        node.styles?.responsive?.[viewport] ?? {};
+
     return {
         ...baseStyles,
-        ...(node.styles?.responsive?.[
-            viewport
-        ] ?? {}),
+        ...reusableResponsiveStyles,
+        ...nodeResponsiveStyles,
     };
 }
 
+/* =========================================================
+   DESIGN TOKEN PREVIEW VARIABLES
+========================================================= */
+
+function createPreviewDesignTokenCss(
+    project: Project
+): string {
+    const variables = createTokenVariableMap(
+        project.designTokens ?? {}
+    );
+
+    return Object.entries(variables)
+        .map(
+            ([name, value]) =>
+                `${name}:${String(value).replace(
+                    /<\/style/gi,
+                    "<\\/style"
+                )};`
+        )
+        .join("\n");
+}
+
 function getAnimationValue(
+    project: Project,
     node: ProjectNode,
     viewport: ViewportType
 ): string {
     const value =
         getPreviewResolvedStyles(
+            project,
             node,
             viewport
         ).animation;
@@ -153,11 +203,13 @@ function getAnimationValue(
 ========================================================= */
 
 function getAnimationTrigger(
+    project: Project,
     node: ProjectNode,
     viewport: ViewportType
 ): string {
     const trigger =
         getPreviewResolvedStyles(
+            project,
             node,
             viewport
         ).animationTrigger;
@@ -201,21 +253,49 @@ function getPreviewAnimationClass(
 ========================================================= */
 
 function serializeStyles(
+    project: Project,
     node: ProjectNode,
     viewport: ViewportType
 ): string {
-    const styles =
+    const resolvedStyles =
         getPreviewResolvedStyles(
+            project,
             node,
             viewport
         );
 
+    /*
+     * Canvas uses height:auto whenever an aspect ratio is active
+     * so the browser derives height from width. Preview must do
+     * the same instead of reusing a stale explicit pixel height.
+     */
+    const styles = {
+        ...resolvedStyles,
+        ...(resolvedStyles.aspectRatio
+            ? {
+                height: "auto",
+            }
+            : {}),
+    } as Record<string, unknown>;
+
+    /*
+     * These are model metadata rather than CSS properties.
+     * Canvas handles them separately, so Preview must not emit
+     * invalid declarations such as "href:" or "target:".
+     */
+    const nonCssProperties = new Set([
+        "responsive",
+        "animation",
+        "animationTrigger",
+        "href",
+        "target",
+        "alt",
+    ]);
+
     return Object.entries(styles)
         .filter(
             ([property]) =>
-                property !== "responsive" &&
-                property !== "animation" &&
-                property !== "animationTrigger"
+                !nonCssProperties.has(property)
         )
         .map(
             ([property, value]) => {
@@ -225,6 +305,21 @@ function serializeStyles(
                     value === ""
                 ) {
                     return "";
+                }
+
+                /*
+                 * Canvas uses Tailwind's border baseline: borders are
+                 * solid by default, but have zero width until the model
+                 * explicitly supplies a width. Preview is a separate
+                 * document, so make that same rule explicit instead of
+                 * allowing the browser's native button border to leak in.
+                 */
+                if (
+                    property === "borderStyle" &&
+                    typeof value === "string" &&
+                    value === "none"
+                ) {
+                    return "border-style:none";
                 }
 
                 return `${cssPropertyName(
@@ -327,6 +422,7 @@ function createPreviewAnimationCss(
         (node) => {
             const animation =
                 getAnimationValue(
+                    project,
                     node,
                     viewport
                 );
@@ -340,6 +436,7 @@ function createPreviewAnimationCss(
 
             const trigger =
                 getAnimationTrigger(
+                    project,
                     node,
                     viewport
                 );
@@ -569,6 +666,7 @@ function renderPreviewNode(
 
     const styles =
         serializeStyles(
+            project,
             node,
             viewport
         );
@@ -584,12 +682,14 @@ function renderPreviewNode(
 
     const animation =
         getAnimationValue(
+            project,
             node,
             viewport
         );
 
     const animationTrigger =
         getAnimationTrigger(
+            project,
             node,
             viewport
         );
@@ -715,7 +815,11 @@ function renderPreviewNode(
 
         if (source) {
             const alt =
-                node.styles?.alt ??
+                getPreviewResolvedStyles(
+                    project,
+                    node,
+                    viewport
+                ).alt ??
                 "";
 
             return `
@@ -875,8 +979,13 @@ function createPreviewDocument(
                    GLOBAL RESET
                 ========================================= */
 
-                * {
+                *,
+                *::before,
+                *::after {
                     box-sizing: border-box;
+                    border-width: 0;
+                    border-style: solid;
+                    border-color: #e5e7eb;
                 }
 
                 html,
@@ -896,6 +1005,7 @@ function createPreviewDocument(
                 }
 
                 img {
+                    display: block;
                     max-width: 100%;
                 }
 
@@ -904,8 +1014,23 @@ function createPreviewDocument(
                     font: inherit;
                 }
 
+                button {
+                    margin: 0;
+                    padding: 0;
+                    background: transparent;
+                    border: 0 solid transparent;
+                }
+
                 a {
                     text-decoration: none;
+                }
+
+                /* =========================================
+                   DESIGN TOKEN VARIABLES
+                ========================================= */
+
+                :root {
+                    ${createPreviewDesignTokenCss(project)}
                 }
 
                 /* =========================================
@@ -1045,6 +1170,8 @@ function openPreview(
 export default function Editor() {
     const [showDesignTokens, setShowDesignTokens] =
         useState(false);
+    const [showReusableStyles, setShowReusableStyles] =
+        useState(false);
 
     /* =====================================================
        PROJECT
@@ -1095,6 +1222,24 @@ export default function Editor() {
             }
         };
         reader.readAsText(file);
+    }
+
+    /* =====================================================
+       RESET CANVAS
+    ===================================================== */
+
+    function resetCanvas() {
+        const confirmed = window.confirm(
+            "Reset Canvas? This will remove your current canvas changes and restore the default canvas. This cannot be undone with the current Undo history."
+        );
+
+        if (!confirmed) {
+            return;
+        }
+
+        replaceProject(
+            structuredClone(defaultProject)
+        );
     }
 
     /* =====================================================
@@ -1552,11 +1697,30 @@ export default function Editor() {
 
                             <button
                                 type="button"
-                                onClick={() =>
-                                    setShowDesignTokens(
-                                        (current) => !current
-                                    )
-                                }
+                                onClick={resetCanvas}
+                                title="Reset the canvas to the default project"
+                                className="
+                                    shrink-0
+                                    rounded-md
+                                    border
+                                    border-red-200
+                                    px-3
+                                    py-1.5
+                                    text-sm
+                                    text-red-600
+                                    transition
+                                    hover:bg-red-50
+                                "
+                            >
+                                Reset Canvas
+                            </button>
+
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setShowDesignTokens((current) => !current);
+                                    setShowReusableStyles(false);
+                                }}
                                 title="Open Design Tokens"
                                 className={`
                                     shrink-0
@@ -1573,6 +1737,30 @@ export default function Editor() {
                                 `}
                             >
                                 Design Tokens
+                            </button>
+
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setShowReusableStyles((current) => !current);
+                                    setShowDesignTokens(false);
+                                }}
+                                title="Open Reusable Styles"
+                                className={`
+                                    shrink-0
+                                    rounded-md
+                                    border
+                                    px-3
+                                    py-1.5
+                                    text-sm
+                                    transition
+                                    ${showReusableStyles
+                                        ? "border-blue-200 bg-blue-50 text-blue-700"
+                                        : "hover:bg-gray-50"
+                                    }
+                                `}
+                            >
+                                Styles
                             </button>
 
                             <div className="mx-1 h-6 w-px shrink-0 bg-gray-200" />
@@ -1752,6 +1940,20 @@ export default function Editor() {
                     "
                 >
                     <DesignTokenManager />
+                </aside>
+            ) : showReusableStyles ? (
+                <aside
+                    className="
+                        w-80
+                        shrink-0
+                        overflow-hidden
+                        border-l
+                        bg-white
+                    "
+                >
+                    <ReusableStyleManager
+                        onClose={() => setShowReusableStyles(false)}
+                    />
                 </aside>
             ) : (
                 <RightPanel

@@ -13,6 +13,7 @@ import {
     DesignToken,
     DesignTokenType,
     LayoutMode,
+    ReusableStyleClass,
     NodeType,
     Project,
     ProjectAsset,
@@ -44,6 +45,8 @@ interface EditorState {
     | null;
 
     selectedNodeIds: string[];
+
+    activeReusableStyleId: string | null;
 
     activeBreakpointId: BreakpointId;
 
@@ -89,6 +92,53 @@ interface EditorState {
 
     setSelectedNodes: (
         nodeIds: string[]
+    ) => void;
+
+    /* =====================================================
+       REUSABLE STYLE CLASS OPERATIONS
+    ===================================================== */
+
+    setActiveReusableStyleId: (
+        styleClassId: string | null
+    ) => void;
+
+    addReusableStyleClass: (
+        name: string,
+        styles?: import("@/model/type").StyleProperties
+    ) => void;
+
+    createReusableStyleClassFromNode: (
+        nodeId: string,
+        name: string
+    ) => void;
+
+    updateReusableStyleClass: (
+        styleClassId: string,
+        updates: Partial<ReusableStyleClass>
+    ) => void;
+
+    updateReusableStyleClassStyles: (
+        styleClassId: string,
+        breakpoint: BreakpointId | null,
+        styles: Record<string, string>
+    ) => void;
+
+    attachReusableStyleClassToNodes: (
+        styleClassId: string,
+        nodeIds: string[]
+    ) => void;
+
+    detachReusableStyleClassFromNodes: (
+        styleClassId: string,
+        nodeIds: string[]
+    ) => void;
+
+    duplicateReusableStyleClass: (
+        styleClassId: string
+    ) => void;
+
+    deleteReusableStyleClass: (
+        styleClassId: string
     ) => void;
 
     /* =====================================================
@@ -630,6 +680,8 @@ export const useEditorStore =
 
             selectedNodeIds: [],
 
+            activeReusableStyleId: null,
+
             activeBreakpointId: "desktop",
 
             setActiveBreakpoint: (
@@ -753,6 +805,793 @@ export const useEditorStore =
                             validNodeIds[
                             validNodeIds.length - 1
                             ] ?? null,
+                    };
+                }),
+
+            /* =================================================
+               REUSABLE STYLE CLASS OPERATIONS
+            ================================================= */
+
+            setActiveReusableStyleId: (styleClassId) =>
+                set({
+                    activeReusableStyleId:
+                        styleClassId,
+                }),
+
+            addReusableStyleClass: (
+                name,
+                styles = {}
+            ) =>
+                set((state) => {
+                    const trimmedName = name.trim();
+
+                    if (!trimmedName) {
+                        return state;
+                    }
+
+                    const existingName =
+                        Object.values(
+                            state.project.reusableStyles ?? {}
+                        ).some(
+                            (styleClass) =>
+                                styleClass.name
+                                    .trim()
+                                    .toLowerCase() ===
+                                trimmedName.toLowerCase()
+                        );
+
+                    if (existingName) {
+                        console.warn(
+                            "A reusable style class with this name already exists."
+                        );
+                        return state;
+                    }
+
+                    const reusableStyles =
+                        state.project.reusableStyles ?? {};
+
+                    let id =
+                        `style-${Date.now()}-${Math.random()
+                            .toString(36)
+                            .slice(2, 8)}`;
+
+                    while (reusableStyles[id]) {
+                        id =
+                            `style-${Date.now()}-${Math.random()
+                                .toString(36)
+                                .slice(2, 8)}`;
+                    }
+
+                    const styleClass: ReusableStyleClass = {
+                        id,
+                        name: trimmedName,
+                        styles: {
+                            ...styles,
+                        },
+                    };
+
+                    const updatedProject: Project = {
+                        ...state.project,
+                        reusableStyles: {
+                            ...reusableStyles,
+                            [id]: styleClass,
+                        },
+                    };
+
+                    const past = pushHistory(state);
+
+                    return {
+                        project: updatedProject,
+                        activeReusableStyleId: id,
+                        past,
+                        future: [],
+                    };
+                }),
+
+            createReusableStyleClassFromNode: (
+                nodeId,
+                name
+            ) =>
+                set((state) => {
+                    const node =
+                        state.project.nodes[nodeId];
+
+                    if (!node || node.type === "page") {
+                        return state;
+                    }
+
+                    const trimmedName = name.trim();
+                    if (!trimmedName) {
+                        return state;
+                    }
+
+                    const existingName =
+                        Object.values(
+                            state.project.reusableStyles ?? {}
+                        ).some(
+                            (styleClass) =>
+                                styleClass.name
+                                    .trim()
+                                    .toLowerCase() ===
+                                trimmedName.toLowerCase()
+                        );
+
+                    if (existingName) {
+                        console.warn(
+                            "A reusable style class with this name already exists."
+                        );
+                        return state;
+                    }
+
+                    const sourceStyles = {
+                        ...(node.styles ?? {}),
+                    };
+
+                    const classStyles: import("@/model/type").StyleProperties = {
+                        ...sourceStyles,
+                        responsive: sourceStyles.responsive
+                            ? {
+                                ...sourceStyles.responsive,
+                            }
+                            : undefined,
+                    };
+
+                    delete (
+                        classStyles as Record<string, unknown>
+                    ).href;
+                    delete (
+                        classStyles as Record<string, unknown>
+                    ).target;
+                    delete (
+                        classStyles as Record<string, unknown>
+                    ).alt;
+
+                    const responsive =
+                        classStyles.responsive;
+
+                    if (responsive) {
+                        for (const breakpoint of [
+                            "desktop",
+                            "tablet",
+                            "mobile",
+                        ] as const) {
+                            if (!responsive[breakpoint]) {
+                                continue;
+                            }
+
+                            const cleaned = {
+                                ...responsive[breakpoint],
+                            };
+
+                            delete (
+                                cleaned as Record<string, unknown>
+                            ).href;
+                            delete (
+                                cleaned as Record<string, unknown>
+                            ).target;
+                            delete (
+                                cleaned as Record<string, unknown>
+                            ).alt;
+
+                            responsive[breakpoint] = cleaned;
+                        }
+                    }
+
+                    const reusableStyles =
+                        state.project.reusableStyles ?? {};
+
+                    let id =
+                        `style-${Date.now()}-${Math.random()
+                            .toString(36)
+                            .slice(2, 8)}`;
+
+                    while (reusableStyles[id]) {
+                        id =
+                            `style-${Date.now()}-${Math.random()
+                                .toString(36)
+                                .slice(2, 8)}`;
+                    }
+
+                    const styleClass: ReusableStyleClass = {
+                        id,
+                        name: trimmedName,
+                        styles: classStyles,
+                    };
+
+                    const preservedStyles = {
+                        ...(node.styles ?? {}),
+                    };
+
+                    for (const key of Object.keys(classStyles)) {
+                        if (key !== "responsive") {
+                            delete (
+                                preservedStyles as Record<string, unknown>
+                            )[key];
+                        }
+                    }
+
+                    if (preservedStyles.responsive) {
+                        preservedStyles.responsive = {
+                            ...preservedStyles.responsive,
+                        };
+
+                        for (const breakpoint of [
+                            "desktop",
+                            "tablet",
+                            "mobile",
+                        ] as const) {
+                            const covered =
+                                classStyles.responsive?.[breakpoint];
+
+                            if (!covered) {
+                                continue;
+                            }
+
+                            const nextBreakpoint = {
+                                ...(preservedStyles.responsive[breakpoint] ?? {}),
+                            };
+
+                            for (const key of Object.keys(covered)) {
+                                delete (
+                                    nextBreakpoint as Record<string, unknown>
+                                )[key];
+                            }
+
+                            preservedStyles.responsive[breakpoint] =
+                                nextBreakpoint;
+                        }
+                    }
+
+                    const hasRemainingStyles =
+                        Object.keys(preservedStyles).some(
+                            (key) =>
+                                key !== "responsive" &&
+                                (preservedStyles as Record<string, unknown>)[key] !== undefined
+                        ) ||
+                        Object.values(preservedStyles.responsive ?? {}).some(
+                            (styles) => Object.keys(styles ?? {}).length > 0
+                        );
+
+                    const updatedProject: Project = {
+                        ...state.project,
+                        reusableStyles: {
+                            ...reusableStyles,
+                            [id]: styleClass,
+                        },
+                        nodes: {
+                            ...state.project.nodes,
+                            [nodeId]: {
+                                ...node,
+                                styleClassIds: [
+                                    ...(node.styleClassIds ?? []),
+                                    id,
+                                ],
+                                // Keep node-specific values such as links/alt text.
+                                styles: hasRemainingStyles
+                                    ? preservedStyles
+                                    : undefined,
+                            },
+                        },
+                    };
+
+                    const past = pushHistory(state);
+
+                    return {
+                        project: updatedProject,
+                        activeReusableStyleId: id,
+                        selectedNodeId: nodeId,
+                        selectedNodeIds: [nodeId],
+                        past,
+                        future: [],
+                    };
+                }),
+
+            updateReusableStyleClass: (
+                styleClassId,
+                updates
+            ) =>
+                set((state) => {
+                    const existing =
+                        state.project.reusableStyles?.[
+                        styleClassId
+                        ];
+
+                    if (!existing) {
+                        return state;
+                    }
+
+                    const nextName =
+                        updates.name !== undefined
+                            ? updates.name.trim()
+                            : existing.name;
+
+                    if (!nextName) {
+                        return state;
+                    }
+
+                    const duplicate =
+                        Object.values(
+                            state.project.reusableStyles ?? {}
+                        ).some(
+                            (styleClass) =>
+                                styleClass.id !== styleClassId &&
+                                styleClass.name
+                                    .trim()
+                                    .toLowerCase() ===
+                                nextName.toLowerCase()
+                        );
+
+                    if (duplicate) {
+                        console.warn(
+                            "A reusable style class with this name already exists."
+                        );
+                        return state;
+                    }
+
+                    const updatedProject: Project = {
+                        ...state.project,
+                        reusableStyles: {
+                            ...(state.project.reusableStyles ?? {}),
+                            [styleClassId]: {
+                                ...existing,
+                                ...updates,
+                                name: nextName,
+                            },
+                        },
+                    };
+
+                    const past = pushHistory(state);
+
+                    return {
+                        project: updatedProject,
+                        past,
+                        future: [],
+                    };
+                }),
+
+            updateReusableStyleClassStyles: (
+                styleClassId,
+                breakpoint,
+                styles
+            ) =>
+                set((state) => {
+                    const existing =
+                        state.project.reusableStyles?.[
+                        styleClassId
+                        ];
+
+                    if (
+                        !existing ||
+                        Object.keys(styles).length === 0
+                    ) {
+                        return state;
+                    }
+
+                    const existingStyles =
+                        existing.styles ?? {};
+
+                    const nextStyles =
+                        breakpoint === null
+                            ? {
+                                ...existingStyles,
+                                ...styles,
+                            }
+                            : {
+                                ...existingStyles,
+                                responsive: {
+                                    ...(existingStyles.responsive ?? {}),
+                                    [breakpoint]: {
+                                        ...(existingStyles.responsive?.[
+                                            breakpoint
+                                        ] ?? {}),
+                                        ...styles,
+                                    },
+                                },
+                            };
+
+                    const updatedProject: Project = {
+                        ...state.project,
+                        reusableStyles: {
+                            ...(state.project.reusableStyles ?? {}),
+                            [styleClassId]: {
+                                ...existing,
+                                styles: nextStyles,
+                            },
+                        },
+                    };
+
+                    if (state.transactionActive) {
+                        return {
+                            project: updatedProject,
+                            transactionChanged: true,
+                        };
+                    }
+
+                    const past = pushHistory(state);
+
+                    return {
+                        project: updatedProject,
+                        past,
+                        future: [],
+                    };
+                }),
+
+            attachReusableStyleClassToNodes: (
+                styleClassId,
+                nodeIds
+            ) =>
+                set((state) => {
+                    const styleClass =
+                        state.project.reusableStyles?.[
+                        styleClassId
+                        ];
+
+                    if (!styleClass) {
+                        return state;
+                    }
+
+                    const validIds = getValidSelectedNodeIds(
+                        nodeIds,
+                        state.project.nodes
+                    );
+
+                    if (validIds.length === 0) {
+                        return state;
+                    }
+
+                    const nodes = {
+                        ...state.project.nodes,
+                    };
+
+                    for (const nodeId of validIds) {
+                        const node = nodes[nodeId];
+                        if (!node || node.type === "page") {
+                            continue;
+                        }
+
+                        const ids = [
+                            ...(node.styleClassIds ?? []),
+                        ];
+
+                        if (!ids.includes(styleClassId)) {
+                            ids.push(styleClassId);
+                        }
+
+                        // The reusable class becomes the owner of properties it defines.
+                        const baseStyles = {
+                            ...(node.styles ?? {}),
+                        };
+
+                        for (const key of Object.keys(
+                            styleClass.styles ?? {}
+                        )) {
+                            if (key !== "responsive") {
+                                delete (
+                                    baseStyles as Record<string, unknown>
+                                )[key];
+                            }
+                        }
+
+                        if (baseStyles.responsive) {
+                            baseStyles.responsive = {
+                                ...baseStyles.responsive,
+                            };
+
+                            for (const breakpoint of [
+                                "desktop",
+                                "tablet",
+                                "mobile",
+                            ] as const) {
+                                const covered =
+                                    styleClass.styles?.responsive?.[
+                                    breakpoint
+                                    ];
+
+                                if (!covered) {
+                                    continue;
+                                }
+
+                                const nextBreakpoint = {
+                                    ...(baseStyles.responsive[
+                                        breakpoint
+                                    ] ?? {}),
+                                };
+
+                                for (const key of Object.keys(
+                                    covered
+                                )) {
+                                    delete (
+                                        nextBreakpoint as Record<string, unknown>
+                                    )[key];
+                                }
+
+                                baseStyles.responsive[
+                                    breakpoint
+                                ] = nextBreakpoint;
+                            }
+                        }
+
+                        nodes[nodeId] = {
+                            ...node,
+                            styleClassIds: ids,
+                            styles: baseStyles,
+                        };
+                    }
+
+                    const updatedProject: Project = {
+                        ...state.project,
+                        nodes,
+                    };
+
+                    const past = pushHistory(state);
+
+                    return {
+                        project: updatedProject,
+                        past,
+                        future: [],
+                    };
+                }),
+
+            detachReusableStyleClassFromNodes: (
+                styleClassId,
+                nodeIds
+            ) =>
+                set((state) => {
+                    const validIds = getValidSelectedNodeIds(
+                        nodeIds,
+                        state.project.nodes
+                    );
+
+                    if (validIds.length === 0) {
+                        return state;
+                    }
+
+                    const nodes = {
+                        ...state.project.nodes,
+                    };
+
+                    for (const nodeId of validIds) {
+                        const node = nodes[nodeId];
+                        if (!node) {
+                            continue;
+                        }
+
+                        const nextClassIds = (
+                            node.styleClassIds ?? []
+                        ).filter(
+                            (id) => id !== styleClassId
+                        );
+
+                        const detachedClass =
+                            state.project.reusableStyles?.[styleClassId];
+
+                        let nextStyles = {
+                            ...(node.styles ?? {}),
+                        };
+
+                        // Preserve the element's appearance when the class is detached.
+                        // Only copy properties that were owned by the detached class and
+                        // only when another remaining class does not already provide them.
+                        if (detachedClass) {
+                            const remainingClasses = nextClassIds
+                                .map((id) => state.project.reusableStyles?.[id])
+                                .filter(Boolean);
+
+                            for (const [key, value] of Object.entries(
+                                detachedClass.styles ?? {}
+                            )) {
+                                if (key === "responsive") continue;
+                                const coveredByRemainingClass =
+                                    remainingClasses.some((remaining) =>
+                                        Object.prototype.hasOwnProperty.call(
+                                            remaining?.styles ?? {},
+                                            key
+                                        )
+                                    );
+
+                                if (!coveredByRemainingClass && value !== undefined) {
+                                    (nextStyles as Record<string, unknown>)[key] = value;
+                                }
+                            }
+
+                            if (detachedClass.styles?.responsive) {
+                                nextStyles.responsive = {
+                                    ...(nextStyles.responsive ?? {}),
+                                };
+
+                                for (const breakpoint of [
+                                    "desktop",
+                                    "tablet",
+                                    "mobile",
+                                ] as const) {
+                                    const detachedStyles =
+                                        detachedClass.styles.responsive[breakpoint];
+
+                                    if (!detachedStyles) continue;
+
+                                    const remainingBreakpointClasses =
+                                        remainingClasses.filter((remaining) =>
+                                            Boolean(
+                                                remaining?.styles?.responsive?.[
+                                                breakpoint
+                                                ]
+                                            )
+                                        );
+
+                                    const restoredBreakpoint = {
+                                        ...(nextStyles.responsive[breakpoint] ?? {}),
+                                    };
+
+                                    for (const [key, value] of Object.entries(
+                                        detachedStyles
+                                    )) {
+                                        const coveredByRemainingClass =
+                                            remainingBreakpointClasses.some((remaining) =>
+                                                Object.prototype.hasOwnProperty.call(
+                                                    remaining?.styles?.responsive?.[breakpoint] ?? {},
+                                                    key
+                                                )
+                                            );
+
+                                        if (!coveredByRemainingClass && value !== undefined) {
+                                            (restoredBreakpoint as Record<string, unknown>)[key] = value;
+                                        }
+                                    }
+
+                                    nextStyles.responsive[breakpoint] = restoredBreakpoint;
+                                }
+                            }
+                        }
+
+                        nodes[nodeId] = {
+                            ...node,
+                            styleClassIds:
+                                nextClassIds.length > 0
+                                    ? nextClassIds
+                                    : undefined,
+                            styles: Object.keys(nextStyles).length > 0
+                                ? nextStyles
+                                : undefined,
+                        };
+                    }
+
+                    const updatedProject: Project = {
+                        ...state.project,
+                        nodes,
+                    };
+
+                    const past = pushHistory(state);
+
+                    return {
+                        project: updatedProject,
+                        past,
+                        future: [],
+                    };
+                }),
+
+            duplicateReusableStyleClass: (
+                styleClassId
+            ) =>
+                set((state) => {
+                    const existing =
+                        state.project.reusableStyles?.[
+                        styleClassId
+                        ];
+
+                    if (!existing) {
+                        return state;
+                    }
+
+                    const reusableStyles =
+                        state.project.reusableStyles ?? {};
+
+                    let id =
+                        `style-${Date.now()}-${Math.random()
+                            .toString(36)
+                            .slice(2, 8)}`;
+
+                    while (reusableStyles[id]) {
+                        id =
+                            `style-${Date.now()}-${Math.random()
+                                .toString(36)
+                                .slice(2, 8)}`;
+                    }
+
+                    let name = `${existing.name} Copy`;
+                    let counter = 2;
+
+                    while (
+                        Object.values(reusableStyles).some(
+                            (styleClass) =>
+                                styleClass.name.toLowerCase() ===
+                                name.toLowerCase()
+                        )
+                    ) {
+                        name = `${existing.name} Copy ${counter}`;
+                        counter++;
+                    }
+
+                    const duplicate: ReusableStyleClass = {
+                        ...existing,
+                        id,
+                        name,
+                        styles: {
+                            ...existing.styles,
+                            responsive: existing.styles.responsive
+                                ? {
+                                    ...existing.styles.responsive,
+                                }
+                                : undefined,
+                        },
+                    };
+
+                    const updatedProject: Project = {
+                        ...state.project,
+                        reusableStyles: {
+                            ...reusableStyles,
+                            [id]: duplicate,
+                        },
+                    };
+
+                    const past = pushHistory(state);
+
+                    return {
+                        project: updatedProject,
+                        activeReusableStyleId: id,
+                        past,
+                        future: [],
+                    };
+                }),
+
+            deleteReusableStyleClass: (
+                styleClassId
+            ) =>
+                set((state) => {
+                    const existing =
+                        state.project.reusableStyles?.[
+                        styleClassId
+                        ];
+
+                    if (!existing) {
+                        return state;
+                    }
+
+                    const usage = Object.values(
+                        state.project.nodes
+                    ).some((node) =>
+                        node.styleClassIds?.includes(
+                            styleClassId
+                        )
+                    );
+
+                    if (usage) {
+                        console.warn(
+                            "Detach this reusable style class before deleting it."
+                        );
+                        return state;
+                    }
+
+                    const reusableStyles = {
+                        ...(state.project.reusableStyles ?? {}),
+                    };
+                    delete reusableStyles[styleClassId];
+
+                    const updatedProject: Project = {
+                        ...state.project,
+                        reusableStyles,
+                    };
+
+                    const past = pushHistory(state);
+
+                    return {
+                        project: updatedProject,
+                        activeReusableStyleId:
+                            state.activeReusableStyleId ===
+                                styleClassId
+                                ? null
+                                : state.activeReusableStyleId,
+                        past,
+                        future: [],
                     };
                 }),
 
@@ -2544,6 +3383,9 @@ export const useEditorStore =
                          */
                         designTokens:
                             project.designTokens ?? {},
+
+                        reusableStyles:
+                            project.reusableStyles ?? {},
                     },
 
                     selectedNodeId: null,

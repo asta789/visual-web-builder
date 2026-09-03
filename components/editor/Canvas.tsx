@@ -18,6 +18,7 @@ import type {
 
 import { useEditorStore } from "@/store/editorStore";
 import { createTokenVariableMap } from "./design-tokens/tokenUtils";
+import { mergeReusableStyleClasses } from "./reusable-styles/styleClassUtils";
 import EditorOverlay from "./EditorOverlay";
 
 /* =========================================================
@@ -119,9 +120,26 @@ type ViewportType =
 
 function getResolvedStyles(
     node: ProjectNode,
-    viewport: ViewportType
+    viewport: ViewportType,
+    reusableStyles?: Parameters<typeof mergeReusableStyleClasses>[1]
 ): BaseStyleProperties {
+    /*
+     * Canvas and Preview must resolve the same style layers:
+     *
+     * 1. reusable style classes
+     * 2. node-local base styles
+     * 3. reusable class responsive styles
+     * 4. node-local responsive styles
+     *
+     * Node-local styles intentionally win over reusable classes.
+     */
+    const classStyles = mergeReusableStyleClasses(
+        node,
+        reusableStyles
+    );
+
     const baseStyles: BaseStyleProperties = {
+        ...(classStyles ?? {}),
         ...(node.styles ?? {}),
     };
 
@@ -131,16 +149,16 @@ function getResolvedStyles(
         }
     ).responsive;
 
-    const responsiveStyles =
-        node.styles?.responsive?.[viewport];
+    const reusableResponsiveStyles =
+        classStyles?.responsive?.[viewport] ?? {};
 
-    if (!responsiveStyles) {
-        return baseStyles;
-    }
+    const nodeResponsiveStyles =
+        node.styles?.responsive?.[viewport] ?? {};
 
     return {
         ...baseStyles,
-        ...responsiveStyles,
+        ...reusableResponsiveStyles,
+        ...nodeResponsiveStyles,
     };
 }
 
@@ -448,7 +466,11 @@ function RenderNode({
 
     const resolvedStyles: BaseStyleProperties =
         node
-            ? getResolvedStyles(node, viewport)
+            ? getResolvedStyles(
+                node,
+                viewport,
+                project.reusableStyles
+            )
             : {};
 
     const layoutMode: LayoutMode =
@@ -698,7 +720,8 @@ function RenderNode({
         const parentStyles =
             getResolvedStyles(
                 parent,
-                viewport
+                viewport,
+                project.reusableStyles
             );
 
         return (
@@ -1050,7 +1073,8 @@ function RenderNode({
         const parentStyles =
             getResolvedStyles(
                 parent,
-                viewport
+                viewport,
+                project.reusableStyles
             );
 
         if (
@@ -1321,7 +1345,8 @@ function RenderNode({
         const parentStyles =
             getResolvedStyles(
                 parent,
-                viewport
+                viewport,
+                project.reusableStyles
             );
 
         const parentLayoutMode =
@@ -1681,8 +1706,18 @@ function RenderNode({
             event.metaKey;
 
         if (isMultiSelect) {
+            /*
+             * Do not change Zustand selection state during pointerdown.
+             * Updating selection here can cause the canvas tree to re-render
+             * while the current pointer gesture is still being processed.
+             * In nested nodes (for example Button inside Section), that can
+             * make the following event resolve against the parent and select
+             * it unexpectedly.
+             *
+             * Defer the actual selection change to handleClick(), after the
+             * pointer gesture has completed.
+             */
             isMultiSelectGesture.current = true;
-            toggleNodeSelection(node.id);
             return;
         }
 
@@ -1728,7 +1763,8 @@ function RenderNode({
                 const parentStyles =
                     getResolvedStyles(
                         parent,
-                        viewport
+                        viewport,
+                        project.reusableStyles
                     );
 
                 dragLayoutMode =
@@ -2085,6 +2121,7 @@ function RenderNode({
 
         if (isMultiSelectGesture.current) {
             isMultiSelectGesture.current = false;
+            toggleNodeSelection(node.id);
             return;
         }
 

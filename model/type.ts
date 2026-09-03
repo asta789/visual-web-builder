@@ -345,7 +345,12 @@ export interface StyleProperties
    responsive?: ResponsiveStyles;
 }
 
-
+export interface ReusableStyleClass {
+   id: string;
+   name: string;
+   description?: string;
+   styles: StyleProperties;
+}
 /* ========================================================= 
    PROJECT NODE 
 ========================================================= */
@@ -364,6 +369,8 @@ export interface ProjectNode {
    assetId?: string;
 
    styles?: StyleProperties;
+
+   styleClassIds?: string[];
 }
 
 
@@ -389,6 +396,8 @@ export interface Project {
    nodes: Record<string, ProjectNode>;
 
    assets: Record<string, ProjectAsset>;
+
+   reusableStyles: Record<string, ReusableStyleClass>;
 
    pages: Record<string, ProjectPage>;
 
