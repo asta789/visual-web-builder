@@ -3259,6 +3259,12 @@ export default function RightPanel({
                 state.selectedNodeId
         );
 
+    const selectedNodeIds =
+        useEditorStore(
+            (state) =>
+                state.selectedNodeIds
+        );
+
     const updateNode =
         useEditorStore(
             (state) =>
@@ -3287,6 +3293,12 @@ export default function RightPanel({
         useEditorStore(
             (state) =>
                 state.updateResponsiveNodeStyles
+        );
+
+    const bulkUpdateResponsiveNodeStyles =
+        useEditorStore(
+            (state) =>
+                state.bulkUpdateResponsiveNodeStyles
         );
 
     const imageInputRef =
@@ -3382,6 +3394,19 @@ export default function RightPanel({
         value: string
     ) {
         if (!node) {
+            return;
+        }
+
+        if (
+            selectedNodeIds.length > 1
+        ) {
+            bulkUpdateResponsiveNodeStyles(
+                selectedNodeIds,
+                viewport,
+                {
+                    [property]: value,
+                }
+            );
             return;
         }
 
@@ -3685,6 +3710,25 @@ export default function RightPanel({
                         <InspectorSection
                             title="Element"
                         >
+                            {selectedNodeIds.length > 1 && (
+                                <div
+                                    className="
+                        shrink-0
+                        border-b
+                        border-blue-100
+                        bg-blue-50
+                        px-3
+                        py-2
+                        text-xs
+                        font-medium
+                        text-blue-700
+                    "
+                                >
+                                    {selectedNodeIds.length} elements selected.
+                                    Style changes apply to all selected elements.
+                                </div>
+                            )}
+
 
                             <div>
                                 <label className="
@@ -4620,16 +4664,31 @@ export default function RightPanel({
                                     if (
                                         nextRatio
                                     ) {
-                                        updateResponsiveNodeStyles(
-                                            node.id,
-                                            viewport,
-                                            {
-                                                aspectRatio:
-                                                    nextRatio,
-                                                height:
-                                                    "auto",
-                                            }
-                                        );
+                                        if (
+                                            selectedNodeIds.length > 1
+                                        ) {
+                                            bulkUpdateResponsiveNodeStyles(
+                                                selectedNodeIds,
+                                                viewport,
+                                                {
+                                                    aspectRatio:
+                                                        nextRatio,
+                                                    height:
+                                                        "auto",
+                                                }
+                                            );
+                                        } else {
+                                            updateResponsiveNodeStyles(
+                                                node.id,
+                                                viewport,
+                                                {
+                                                    aspectRatio:
+                                                        nextRatio,
+                                                    height:
+                                                        "auto",
+                                                }
+                                            );
+                                        }
                                         return;
                                     }
 
@@ -4673,23 +4732,35 @@ export default function RightPanel({
                                             )
                                             : currentHeight;
 
-                                    updateResponsiveNodeStyles(
-                                        node.id,
-                                        viewport,
-                                        {
-                                            aspectRatio:
-                                                "",
-                                            height:
-                                                logicalHeight &&
-                                                    Number.isFinite(
-                                                        logicalHeight
-                                                    )
-                                                    ? `${Math.round(
-                                                        logicalHeight
-                                                    )}px`
-                                                    : "auto",
-                                        }
-                                    );
+                                    const aspectRatioStyles = {
+                                        aspectRatio:
+                                            "",
+                                        height:
+                                            logicalHeight &&
+                                                Number.isFinite(
+                                                    logicalHeight
+                                                )
+                                                ? `${Math.round(
+                                                    logicalHeight
+                                                )}px`
+                                                : "auto",
+                                    };
+
+                                    if (
+                                        selectedNodeIds.length > 1
+                                    ) {
+                                        bulkUpdateResponsiveNodeStyles(
+                                            selectedNodeIds,
+                                            viewport,
+                                            aspectRatioStyles
+                                        );
+                                    } else {
+                                        updateResponsiveNodeStyles(
+                                            node.id,
+                                            viewport,
+                                            aspectRatioStyles
+                                        );
+                                    }
                                 }}
                             />
 

@@ -352,10 +352,22 @@ function RenderNode({
                 state.selectedNodeId
         );
 
+    const selectedNodeIds =
+        useEditorStore(
+            (state) =>
+                state.selectedNodeIds
+        );
+
     const selectNode =
         useEditorStore(
             (state) =>
                 state.selectNode
+        );
+
+    const toggleNodeSelection =
+        useEditorStore(
+            (state) =>
+                state.toggleNodeSelection
         );
 
     const updateNodeStyles =
@@ -420,6 +432,9 @@ function RenderNode({
         useRef(false);
 
     const isDragging =
+        useRef(false);
+
+    const isMultiSelectGesture =
         useRef(false);
 
     const dragState =
@@ -1661,6 +1676,18 @@ function RenderNode({
 
         event.stopPropagation();
 
+        const isMultiSelect =
+            event.ctrlKey ||
+            event.metaKey;
+
+        if (isMultiSelect) {
+            isMultiSelectGesture.current = true;
+            toggleNodeSelection(node.id);
+            return;
+        }
+
+        isMultiSelectGesture.current = false;
+
         selectNode(
             node.id
         );
@@ -2055,6 +2082,19 @@ function RenderNode({
         event: MouseEvent
     ) {
         event.stopPropagation();
+
+        if (isMultiSelectGesture.current) {
+            isMultiSelectGesture.current = false;
+            return;
+        }
+
+        if (
+            event.ctrlKey ||
+            event.metaKey
+        ) {
+            toggleNodeSelection(node.id);
+            return;
+        }
 
         selectNode(
             node.id
@@ -2467,13 +2507,18 @@ function RenderNode({
             ? "outline outline-1 outline-blue-200"
             : "";
 
+    const selectionClass =
+        selectedNodeIds.includes(node.id)
+            ? "outline outline-2 outline-blue-500"
+            : "";
+
     const dragClass =
         isDragActive
             ? "outline outline-2 outline-blue-500 ring-2 ring-blue-300 ring-offset-2 shadow-lg"
             : "";
 
     const interactionClass =
-        `${hoverClass} ${dragClass}`.trim();
+        `${hoverClass} ${selectionClass} ${dragClass}`.trim();
 
     /* =====================================================
        TEXT

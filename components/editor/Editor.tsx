@@ -7,6 +7,7 @@ import LeftPanel from "./LeftPanel";
 import Canvas from "./Canvas";
 import RightPanel from "./RightPanel";
 import { DesignTokenManager } from "./design-tokens";
+import { MultiSelectionBar } from "./multi-select";
 
 import { useEditorStore } from "@/store/editorStore";
 import {
@@ -1106,6 +1107,12 @@ export default function Editor() {
                 state.selectedNodeId
         );
 
+    const selectedNodeIds =
+        useEditorStore(
+            (state) =>
+                state.selectedNodeIds
+        );
+
     /* =====================================================
        NODE OPERATIONS
     ===================================================== */
@@ -1116,10 +1123,28 @@ export default function Editor() {
                 state.deleteNode
         );
 
+    const deleteSelectedNodes =
+        useEditorStore(
+            (state) =>
+                state.deleteSelectedNodes
+        );
+
     const duplicateNode =
         useEditorStore(
             (state) =>
                 state.duplicateNode
+        );
+
+    const selectAllNodes =
+        useEditorStore(
+            (state) =>
+                state.selectAllNodes
+        );
+
+    const clearSelection =
+        useEditorStore(
+            (state) =>
+                state.clearSelection
         );
 
     /* =====================================================
@@ -1249,6 +1274,33 @@ export default function Editor() {
                SELECTION REQUIRED
             --------------------------------------------- */
 
+            /* ---------------------------------------------
+               SELECT ALL
+            --------------------------------------------- */
+
+            if (
+                (event.ctrlKey ||
+                    event.metaKey) &&
+                event.key.toLowerCase() ===
+                "a"
+            ) {
+                event.preventDefault();
+                selectAllNodes();
+                return;
+            }
+
+            /* ---------------------------------------------
+               CLEAR SELECTION
+            --------------------------------------------- */
+
+            if (
+                event.key ===
+                "Escape"
+            ) {
+                clearSelection();
+                return;
+            }
+
             if (!selectedNodeId) {
                 return;
             }
@@ -1265,9 +1317,16 @@ export default function Editor() {
             ) {
                 event.preventDefault();
 
-                deleteNode(
-                    selectedNodeId
-                );
+                if (
+                    selectedNodeIds.length >
+                    1
+                ) {
+                    deleteSelectedNodes();
+                } else {
+                    deleteNode(
+                        selectedNodeId
+                    );
+                }
 
                 return;
             }
@@ -1659,6 +1718,8 @@ export default function Editor() {
                         </div>
                     </div>
                 </header>
+
+                <MultiSelectionBar />
 
                 {/* =================================================
                     CANVAS

@@ -2,6 +2,11 @@ import { moveNode as moveTreeNode } from "@/store/treeOperations";
 import { create } from "zustand";
 
 import { defaultProject } from "@/model/defaultProject";
+import {
+    getEditableNodeIds,
+    getTopLevelSelectedNodeIds,
+    getValidSelectedNodeIds,
+} from "@/components/editor/multi-select/selectionUtils";
 
 import {
     BreakpointId,
@@ -24,6 +29,8 @@ interface EditorSnapshot {
     selectedNodeId:
     | string
     | null;
+
+    selectedNodeIds: string[];
 }
 
 /* =========================================================
@@ -35,6 +42,8 @@ interface EditorState {
     selectedNodeId:
     | string
     | null;
+
+    selectedNodeIds: string[];
 
     activeBreakpointId: BreakpointId;
 
@@ -68,6 +77,18 @@ interface EditorState {
 
     selectNode: (
         nodeId: string | null
+    ) => void;
+
+    toggleNodeSelection: (
+        nodeId: string
+    ) => void;
+
+    clearSelection: () => void;
+
+    selectAllNodes: () => void;
+
+    setSelectedNodes: (
+        nodeIds: string[]
     ) => void;
 
     /* =====================================================
@@ -111,6 +132,11 @@ interface EditorState {
 
     updateNodeStyles: (
         nodeId: string,
+        styles: Record<string, string>
+    ) => void;
+
+    bulkUpdateNodeStyles: (
+        nodeIds: string[],
         styles: Record<string, string>
     ) => void;
 
@@ -163,9 +189,17 @@ interface EditorState {
         styles: Record<string, string>
     ) => void;
 
+    bulkUpdateResponsiveNodeStyles: (
+        nodeIds: string[],
+        breakpoint: BreakpointId,
+        styles: Record<string, string>
+    ) => void;
+
     deleteNode: (
         nodeId: string
     ) => void;
+
+    deleteSelectedNodes: () => void;
 
     duplicateNode: (
         nodeId: string
@@ -213,6 +247,10 @@ function createSnapshot(
         project: state.project,
         selectedNodeId:
             state.selectedNodeId,
+
+        selectedNodeIds: [
+            ...state.selectedNodeIds,
+        ],
     };
 }
 
@@ -590,6 +628,8 @@ export const useEditorStore =
             selectedNodeId:
                 null,
 
+            selectedNodeIds: [],
+
             activeBreakpointId: "desktop",
 
             setActiveBreakpoint: (
@@ -626,6 +666,94 @@ export const useEditorStore =
                 set({
                     selectedNodeId:
                         nodeId,
+
+                    selectedNodeIds:
+                        nodeId
+                            ? [nodeId]
+                            : [],
+                }),
+
+            toggleNodeSelection: (
+                nodeId
+            ) =>
+                set((state) => {
+                    const node =
+                        state.project.nodes[nodeId];
+
+                    if (
+                        !node ||
+                        node.type === "page"
+                    ) {
+                        return state;
+                    }
+
+                    const current =
+                        getValidSelectedNodeIds(
+                            state.selectedNodeIds,
+                            state.project.nodes
+                        );
+
+                    const exists =
+                        current.includes(nodeId);
+
+                    const next = exists
+                        ? current.filter(
+                            (id) => id !== nodeId
+                        )
+                        : [...current, nodeId];
+
+                    return {
+                        selectedNodeIds: next,
+                        selectedNodeId:
+                            next.length > 0
+                                ? nodeId === state.selectedNodeId &&
+                                    exists
+                                    ? next[next.length - 1] ?? null
+                                    : nodeId
+                                : null,
+                    };
+                }),
+
+            clearSelection: () =>
+                set({
+                    selectedNodeId: null,
+                    selectedNodeIds: [],
+                }),
+
+            selectAllNodes: () =>
+                set((state) => {
+                    const nodeIds =
+                        getEditableNodeIds(
+                            state.project.nodes
+                        );
+
+                    return {
+                        selectedNodeIds: nodeIds,
+                        selectedNodeId:
+                            nodeIds[nodeIds.length - 1] ??
+                            null,
+                    };
+                }),
+
+            setSelectedNodes: (
+                nodeIds
+            ) =>
+                set((state) => {
+                    const validNodeIds =
+                        getValidSelectedNodeIds(
+                            [...new Set(nodeIds)],
+                            state.project.nodes
+                        );
+
+                    return {
+                        selectedNodeIds:
+                            validNodeIds,
+
+                        selectedNodeId:
+                            validNodeIds[
+                            validNodeIds.length - 1
+                            ] ?? null,
+                    };
                 }),
 
             /* =================================================
@@ -760,6 +888,9 @@ export const useEditorStore =
 
                         selectedNodeId:
                             null,
+
+                        selectedNodeIds:
+                            [],
 
                         past,
 
@@ -919,6 +1050,9 @@ export const useEditorStore =
 
                         selectedNodeId:
                             null,
+
+                        selectedNodeIds:
+                            [],
 
                         past,
 
@@ -1280,6 +1414,9 @@ export const useEditorStore =
                         selectedNodeId:
                             null,
 
+                        selectedNodeIds:
+                            [],
+
                         past,
 
                         future: [],
@@ -1328,6 +1465,9 @@ export const useEditorStore =
 
                         selectedNodeId:
                             null,
+
+                        selectedNodeIds:
+                            [],
                     };
                 }),
 
@@ -1621,6 +1761,9 @@ export const useEditorStore =
                             selectedNodeId:
                                 newNode.id,
 
+                            selectedNodeIds:
+                                [newNode.id],
+
                             transactionChanged:
                                 true,
                         };
@@ -1637,6 +1780,9 @@ export const useEditorStore =
 
                         selectedNodeId:
                             newNode.id,
+
+                        selectedNodeIds:
+                            [newNode.id],
 
                         past,
 
@@ -1781,7 +1927,83 @@ export const useEditorStore =
                 }),
 
             /* =========================================================
-   SET LAYOUT MODE
+               BULK NODE STYLE UPDATE
+            ========================================================= */
+
+            bulkUpdateNodeStyles: (
+                nodeIds,
+                styles
+            ) =>
+                set((state) => {
+                    const validNodeIds =
+                        getValidSelectedNodeIds(
+                            nodeIds,
+                            state.project.nodes
+                        );
+
+                    if (
+                        validNodeIds.length === 0 ||
+                        Object.keys(styles).length === 0
+                    ) {
+                        return state;
+                    }
+
+                    const nodes = {
+                        ...state.project.nodes,
+                    };
+
+                    validNodeIds.forEach(
+                        (id) => {
+                            const existingNode =
+                                nodes[id];
+
+                            if (!existingNode) {
+                                return;
+                            }
+
+                            nodes[id] = {
+                                ...existingNode,
+
+                                styles: {
+                                    ...(existingNode.styles ?? {}),
+                                    ...styles,
+                                },
+                            };
+                        }
+                    );
+
+                    const updatedProject: Project = {
+                        ...state.project,
+                        nodes,
+                    };
+
+                    if (
+                        state.transactionActive
+                    ) {
+                        return {
+                            project:
+                                updatedProject,
+
+                            transactionChanged:
+                                true,
+                        };
+                    }
+
+                    const past =
+                        pushHistory(state);
+
+                    return {
+                        project:
+                            updatedProject,
+
+                        past,
+
+                        future: [],
+                    };
+                }),
+
+            /* =================================================
+               SET LAYOUT MODE
 ========================================================= */
 
             setLayoutMode: (
@@ -2326,6 +2548,8 @@ export const useEditorStore =
 
                     selectedNodeId: null,
 
+                    selectedNodeIds: [],
+
                     past: [],
 
                     future: [],
@@ -2688,6 +2912,105 @@ export const useEditorStore =
                     }),
 
             /* =================================================
+               BULK RESPONSIVE STYLE UPDATE
+            ================================================= */
+
+            bulkUpdateResponsiveNodeStyles:
+                (
+                    nodeIds,
+                    breakpoint,
+                    styles
+                ) =>
+                    set((state) => {
+                        const validNodeIds =
+                            getValidSelectedNodeIds(
+                                nodeIds,
+                                state.project.nodes
+                            );
+
+                        if (
+                            validNodeIds.length === 0 ||
+                            Object.keys(styles).length === 0
+                        ) {
+                            return state;
+                        }
+
+                        const nodes = {
+                            ...state.project.nodes,
+                        };
+
+                        validNodeIds.forEach(
+                            (id) => {
+                                const existingNode =
+                                    nodes[id];
+
+                                if (!existingNode) {
+                                    return;
+                                }
+
+                                const existingStyles =
+                                    existingNode.styles ??
+                                    {};
+
+                                const existingResponsive =
+                                    existingStyles.responsive ??
+                                    {};
+
+                                const existingBreakpointStyles =
+                                    existingResponsive[
+                                    breakpoint
+                                    ] ?? {};
+
+                                nodes[id] = {
+                                    ...existingNode,
+
+                                    styles: {
+                                        ...existingStyles,
+
+                                        responsive: {
+                                            ...existingResponsive,
+
+                                            [breakpoint]: {
+                                                ...existingBreakpointStyles,
+                                                ...styles,
+                                            },
+                                        },
+                                    },
+                                };
+                            }
+                        );
+
+                        const updatedProject: Project = {
+                            ...state.project,
+                            nodes,
+                        };
+
+                        if (
+                            state.transactionActive
+                        ) {
+                            return {
+                                project:
+                                    updatedProject,
+
+                                transactionChanged:
+                                    true,
+                            };
+                        }
+
+                        const past =
+                            pushHistory(state);
+
+                        return {
+                            project:
+                                updatedProject,
+
+                            past,
+
+                            future: [],
+                        };
+                    }),
+
+            /* =================================================
                DELETE NODE
             ================================================= */
 
@@ -2809,6 +3132,131 @@ export const useEditorStore =
 
                         selectedNodeId:
                             null,
+
+                        selectedNodeIds:
+                            [],
+
+                        past,
+
+                        future: [],
+                    };
+                }),
+
+            /* =================================================
+               DELETE SELECTED NODES
+            ================================================= */
+
+            deleteSelectedNodes: () =>
+                set((state) => {
+                    const selectedIds =
+                        getValidSelectedNodeIds(
+                            state.selectedNodeIds,
+                            state.project.nodes
+                        );
+
+                    if (
+                        selectedIds.length === 0
+                    ) {
+                        return state;
+                    }
+
+                    const idsToDelete =
+                        getTopLevelSelectedNodeIds(
+                            selectedIds,
+                            state.project.nodes
+                        );
+
+                    const newNodes = {
+                        ...state.project.nodes,
+                    };
+
+                    idsToDelete.forEach(
+                        (nodeId) => {
+                            const node =
+                                state.project.nodes[nodeId];
+
+                            if (!node) {
+                                return;
+                            }
+
+                            const descendants =
+                                collectDescendants(
+                                    state.project.nodes,
+                                    nodeId
+                                );
+
+                            const allIds = [
+                                nodeId,
+                                ...descendants,
+                            ];
+
+                            allIds.forEach(
+                                (id) => {
+                                    delete newNodes[id];
+                                }
+                            );
+
+                            if (node.parentId) {
+                                const parent =
+                                    newNodes[node.parentId];
+
+                                if (parent) {
+                                    newNodes[node.parentId] = {
+                                        ...parent,
+
+                                        children:
+                                            (
+                                                parent.children ??
+                                                []
+                                            ).filter(
+                                                (childId) =>
+                                                    childId !==
+                                                    nodeId
+                                            ),
+                                    };
+                                }
+                            }
+                        }
+                    );
+
+                    const updatedProject:
+                        Project = {
+                        ...state.project,
+
+                        nodes:
+                            newNodes,
+                    };
+
+                    if (
+                        state.transactionActive
+                    ) {
+                        return {
+                            project:
+                                updatedProject,
+
+                            selectedNodeId:
+                                null,
+
+                            selectedNodeIds:
+                                [],
+
+                            transactionChanged:
+                                true,
+                        };
+                    }
+
+                    const past =
+                        pushHistory(state);
+
+                    return {
+                        project:
+                            updatedProject,
+
+                        selectedNodeId:
+                            null,
+
+                        selectedNodeIds:
+                            [],
 
                         past,
 
@@ -2933,6 +3381,9 @@ export const useEditorStore =
                             selectedNodeId:
                                 newId,
 
+                            selectedNodeIds:
+                                [newId],
+
                             transactionChanged:
                                 true,
                         };
@@ -2949,6 +3400,9 @@ export const useEditorStore =
 
                         selectedNodeId:
                             newId,
+
+                        selectedNodeIds:
+                            [newId],
 
                         past,
 
@@ -3008,6 +3462,9 @@ export const useEditorStore =
                             selectedNodeId:
                                 nodeId,
 
+                            selectedNodeIds:
+                                [nodeId],
+
                             transactionChanged:
                                 true,
                         };
@@ -3024,6 +3481,9 @@ export const useEditorStore =
 
                         selectedNodeId:
                             nodeId,
+
+                        selectedNodeIds:
+                            [nodeId],
 
                         past,
 
@@ -3057,6 +3517,12 @@ export const useEditorStore =
                             selectedNodeId:
                                 previous
                                     .selectedNodeId,
+
+                            selectedNodeIds:
+                                [
+                                    ...previous
+                                        .selectedNodeIds,
+                                ],
 
                             transactionSnapshot:
                                 null,
@@ -3094,6 +3560,12 @@ export const useEditorStore =
                         selectedNodeId:
                             previous
                                 .selectedNodeId,
+
+                        selectedNodeIds:
+                            [
+                                ...previous
+                                    .selectedNodeIds,
+                            ],
 
                         past:
                             state.past.slice(
@@ -3171,6 +3643,12 @@ export const useEditorStore =
                         selectedNodeId:
                             next
                                 .selectedNodeId,
+
+                        selectedNodeIds:
+                            [
+                                ...next
+                                    .selectedNodeIds,
+                            ],
 
                         future:
                             state.future.slice(

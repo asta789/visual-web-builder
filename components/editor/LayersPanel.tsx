@@ -33,16 +33,22 @@ function LayerItem({
             (state) => state.project
         );
 
-    const selectedNodeId =
+    const selectedNodeIds =
         useEditorStore(
             (state) =>
-                state.selectedNodeId
+                state.selectedNodeIds
         );
 
     const selectNode =
         useEditorStore(
             (state) =>
                 state.selectNode
+        );
+
+    const toggleNodeSelection =
+        useEditorStore(
+            (state) =>
+                state.toggleNodeSelection
         );
 
     const moveNode =
@@ -52,7 +58,7 @@ function LayerItem({
         );
 
     const isSelected =
-        selectedNodeId === node.id;
+        selectedNodeIds.includes(node.id);
 
     const children =
         (node.children ?? [])
@@ -76,7 +82,17 @@ function LayerItem({
        SELECT
     ===================================================== */
 
-    const handleSelect = () => {
+    const handleSelect = (
+        event: React.MouseEvent
+    ) => {
+        if (
+            event.ctrlKey ||
+            event.metaKey
+        ) {
+            toggleNodeSelection(node.id);
+            return;
+        }
+
         selectNode(node.id);
     };
 
