@@ -13,9 +13,11 @@ import type {
     ProjectNode,
     BaseStyleProperties,
     LayoutMode,
+    DesignToken,
 } from "@/model/type";
 
 import { useEditorStore } from "@/store/editorStore";
+import { createTokenVariableMap } from "./design-tokens/tokenUtils";
 import EditorOverlay from "./EditorOverlay";
 
 /* =========================================================
@@ -148,6 +150,7 @@ function getResolvedStyles(
 
 interface GridGuideProps {
     columns: number;
+    rows: number;
     columnGap: string;
     rowGap: string;
     isEmpty: boolean;
@@ -155,6 +158,7 @@ interface GridGuideProps {
 
 function GridGuide({
     columns,
+    rows,
     columnGap,
     rowGap,
     isEmpty,
@@ -163,6 +167,12 @@ function GridGuide({
         Math.max(
             1,
             Math.min(columns, 6)
+        );
+
+    const safeRows =
+        Math.max(
+            1,
+            Math.min(rows, 6)
         );
 
     return (
@@ -250,6 +260,17 @@ function GridGuide({
             />
         </div>
     );
+}
+
+/* =========================================================
+   DESIGN TOKEN CSS VARIABLES
+========================================================= */
+
+function getDesignTokenVariables(
+    tokens: Record<string, DesignToken>
+): CSSProperties {
+    const variables = createTokenVariableMap(tokens ?? {});
+    return variables as CSSProperties;
 }
 
 /* =========================================================
@@ -2100,8 +2121,20 @@ function RenderNode({
         width:
             resolvedStyles.width,
 
+        /*
+         * When an aspect ratio is active, CSS must be allowed to
+         * calculate the height from the current width. A previously
+         * resized node may still have an explicit pixel height in
+         * the project model; keeping that height would lock the box
+         * and make changing 16:9 -> 3:2 appear to do nothing.
+         *
+         * The resize overlay is responsible for changing width while
+         * an aspect ratio is active. CSS then derives the height.
+         */
         height:
-            resolvedStyles.height,
+            resolvedStyles.aspectRatio
+                ? "auto"
+                : resolvedStyles.height,
 
         minWidth:
             resolvedStyles.minWidth,
@@ -2114,6 +2147,9 @@ function RenderNode({
 
         maxHeight:
             resolvedStyles.maxHeight,
+
+        aspectRatio:
+            resolvedStyles.aspectRatio,
 
         position:
             resolvedStyles.position as
@@ -2161,6 +2197,10 @@ function RenderNode({
         display:
             resolvedStyles.display,
 
+        visibility:
+            resolvedStyles.visibility as
+            CSSProperties["visibility"],
+
         flexDirection:
             resolvedStyles.flexDirection as
             CSSProperties["flexDirection"],
@@ -2181,15 +2221,6 @@ function RenderNode({
             resolvedStyles.alignContent as
             CSSProperties["alignContent"],
 
-        gap:
-            resolvedStyles.gap,
-
-        gridTemplateColumns:
-            resolvedStyles.gridTemplateColumns,
-
-        gridTemplateRows:
-            resolvedStyles.gridTemplateRows,
-
         justifyItems:
             resolvedStyles.justifyItems as
             CSSProperties["justifyItems"],
@@ -2205,6 +2236,15 @@ function RenderNode({
 
         gridRowEnd:
             resolvedStyles.gridRowEnd,
+
+        gap:
+            resolvedStyles.gap,
+
+        gridTemplateColumns:
+            resolvedStyles.gridTemplateColumns,
+
+        gridTemplateRows:
+            resolvedStyles.gridTemplateRows,
 
         columnGap:
             resolvedStyles.columnGap,
@@ -2263,6 +2303,20 @@ function RenderNode({
         backgroundImage:
             resolvedStyles.backgroundImage,
 
+        backgroundSize:
+            resolvedStyles.backgroundSize,
+
+        backgroundPosition:
+            resolvedStyles.backgroundPosition,
+
+        backgroundRepeat:
+            resolvedStyles.backgroundRepeat as
+            CSSProperties["backgroundRepeat"],
+
+        backgroundAttachment:
+            resolvedStyles.backgroundAttachment as
+            CSSProperties["backgroundAttachment"],
+
         borderRadius:
             resolvedStyles.borderRadius,
 
@@ -2276,8 +2330,54 @@ function RenderNode({
         borderColor:
             resolvedStyles.borderColor,
 
+        borderTopStyle:
+            resolvedStyles.borderTopStyle as
+            CSSProperties["borderTopStyle"],
+
+        borderRightStyle:
+            resolvedStyles.borderRightStyle as
+            CSSProperties["borderRightStyle"],
+
+        borderBottomStyle:
+            resolvedStyles.borderBottomStyle as
+            CSSProperties["borderBottomStyle"],
+
+        borderLeftStyle:
+            resolvedStyles.borderLeftStyle as
+            CSSProperties["borderLeftStyle"],
+
+        borderTopWidth:
+            resolvedStyles.borderTopWidth,
+
+        borderRightWidth:
+            resolvedStyles.borderRightWidth,
+
+        borderBottomWidth:
+            resolvedStyles.borderBottomWidth,
+
+        borderLeftWidth:
+            resolvedStyles.borderLeftWidth,
+
+        borderTopColor:
+            resolvedStyles.borderTopColor,
+
+        borderRightColor:
+            resolvedStyles.borderRightColor,
+
+        borderBottomColor:
+            resolvedStyles.borderBottomColor,
+
+        borderLeftColor:
+            resolvedStyles.borderLeftColor,
+
         opacity:
             resolvedStyles.opacity,
+
+        filter:
+            resolvedStyles.filter,
+
+        backdropFilter:
+            resolvedStyles.backdropFilter,
 
         boxShadow:
             resolvedStyles.boxShadow,
@@ -2477,6 +2577,9 @@ function RenderNode({
                     objectFit:
                         resolvedStyles.objectFit as
                         CSSProperties["objectFit"],
+                    objectPosition:
+                        resolvedStyles.objectPosition as
+                        CSSProperties["objectPosition"],
                 }}
                 className={
                     interactionClass
@@ -2521,6 +2624,22 @@ function RenderNode({
                     gridMatch[1]
                 )
                 : 3;
+
+        const gridTemplateRows =
+            resolvedStyles.gridTemplateRows ||
+            "repeat(2, minmax(0, auto))";
+
+        const gridRowMatch =
+            gridTemplateRows.match(
+                /repeat\(\s*(\d+)/
+            );
+
+        const gridRows =
+            gridRowMatch
+                ? Number(
+                    gridRowMatch[1]
+                )
+                : 2;
 
         const isGridEmpty =
             !node.children ||
@@ -2578,6 +2697,9 @@ function RenderNode({
                     <GridGuide
                         columns={
                             gridColumns
+                        }
+                        rows={
+                            gridRows
                         }
                         columnGap={
                             resolvedStyles.columnGap ||
@@ -2781,6 +2903,10 @@ export default function Canvas({
 
                             transformOrigin:
                                 "top left",
+
+                            ...getDesignTokenVariables(
+                                project.designTokens
+                            ),
                         }}
                         data-viewport={
                             viewport

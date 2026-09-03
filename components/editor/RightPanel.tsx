@@ -13,6 +13,7 @@ import type {
 } from "@/model/type";
 
 import { useEditorStore } from "@/store/editorStore";
+import TokenPicker from "./design-tokens/TokenPicker";
 
 /* =========================================================
    RIGHT PANEL PROPS
@@ -361,6 +362,88 @@ function ColorInput({
         </div>
     );
 }
+
+/* =========================================================
+   DESIGN TOKEN COLOR CONTROL
+========================================================= */
+
+interface DesignTokenColorControlProps {
+    value?: string;
+    onChange: (value: string) => void;
+}
+
+function DesignTokenColorControl({
+    value,
+    onChange,
+}: DesignTokenColorControlProps) {
+    const project = useEditorStore((state) => state.project);
+    const [open, setOpen] = useState(false);
+
+    const isToken =
+        Boolean(
+            value &&
+            value.trim().startsWith("var(--token-")
+        );
+
+    return (
+        <div className="space-y-2">
+            <button
+                type="button"
+                onClick={() =>
+                    setOpen((current) => !current)
+                }
+                className="
+                    w-full
+                    rounded-md
+                    border
+                    bg-white
+                    px-2.5
+                    py-2
+                    text-left
+                    text-xs
+                    font-medium
+                    text-gray-600
+                    transition
+                    hover:bg-gray-50
+                "
+            >
+                {open
+                    ? "Hide Design Tokens"
+                    : isToken
+                        ? "🎨 Change Design Token"
+                        : "🎨 Use Design Token"}
+            </button>
+
+            {open && (
+                <div className="rounded-lg border bg-gray-50 p-3">
+                    <TokenPicker
+                        tokens={project.designTokens ?? {}}
+                        value={value}
+                        allowedTypes={["color"]}
+                        onSelect={onChange}
+                        onClear={() => onChange("")}
+                    />
+                </div>
+            )}
+
+            {isToken && (
+                <div className="
+                    rounded-md
+                    border
+                    border-blue-100
+                    bg-blue-50
+                    px-2.5
+                    py-2
+                    text-[11px]
+                    text-blue-600
+                ">
+                    Linked to a design token.
+                </div>
+            )}
+        </div>
+    );
+}
+
 
 /* =========================================================
    GRADIENT BUILDER
@@ -813,6 +896,202 @@ function GradientBuilder({
     );
 }
 /* =========================================================
+   BACKGROUND IMAGE CONTROLS
+========================================================= */
+
+interface BackgroundImageControlsProps {
+    imageUrl?: string;
+    size?: string;
+    position?: string;
+    repeat?: string;
+    attachment?: string;
+    assets: ProjectAsset[];
+    onImageUrlChange: (value: string) => void;
+    onImportFromPC: () => void;
+    onOpenAssetLibrary: () => void;
+    onSelectAsset: (asset: ProjectAsset) => void;
+    onSizeChange: (value: string) => void;
+    onPositionChange: (value: string) => void;
+    onRepeatChange: (value: string) => void;
+    onAttachmentChange: (value: string) => void;
+}
+
+function BackgroundImageControls({
+    imageUrl,
+    size,
+    position,
+    repeat,
+    attachment,
+    assets,
+    onImageUrlChange,
+    onImportFromPC,
+    onOpenAssetLibrary,
+    onSelectAsset,
+    onSizeChange,
+    onPositionChange,
+    onRepeatChange,
+    onAttachmentChange,
+}: BackgroundImageControlsProps) {
+    const imageAssets = assets.filter((asset) =>
+        asset.type.startsWith("image/")
+    );
+
+    return (
+        <div className="space-y-4 rounded-lg border bg-gray-50 p-3">
+            <div>
+                <label className="mb-2 block text-xs font-medium text-gray-500">
+                    Background Image
+                </label>
+
+                <div className="grid grid-cols-2 gap-2">
+                    <button
+                        type="button"
+                        onClick={onImportFromPC}
+                        className="rounded-md border bg-white px-2.5 py-2 text-xs font-medium text-gray-700 transition hover:bg-gray-50"
+                    >
+                        📁 Import from PC
+                    </button>
+                    <button
+                        type="button"
+                        onClick={onOpenAssetLibrary}
+                        className="rounded-md border bg-white px-2.5 py-2 text-xs font-medium text-gray-700 transition hover:bg-gray-50"
+                    >
+                        🖼️ Asset Library
+                    </button>
+                </div>
+
+                <p className="mt-2 text-[11px] text-gray-400">
+                    Or use an image URL
+                </p>
+                <StyleInput
+                    label="Image URL"
+                    value={imageUrl}
+                    placeholder="https://example.com/image.jpg"
+                    onChange={onImageUrlChange}
+                />
+            </div>
+
+            {imageAssets.length > 0 && (
+                <div className="rounded-md border bg-white p-2">
+                    <div className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+                        Your Images
+                    </div>
+                    <div className="grid grid-cols-3 gap-2">
+                        {imageAssets.map((asset) => (
+                            <button
+                                key={asset.id}
+                                type="button"
+                                onClick={() => onSelectAsset(asset)}
+                                title={asset.name}
+                                className="group overflow-hidden rounded-md border bg-gray-50 text-left transition hover:border-blue-400"
+                            >
+                                <img
+                                    src={asset.source}
+                                    alt={asset.name}
+                                    className="h-16 w-full object-cover"
+                                />
+                                <span className="block truncate px-1.5 py-1 text-[10px] text-gray-500">
+                                    {asset.name}
+                                </span>
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            <StyleSelect
+                label="Size"
+                value={size || "cover"}
+                options={[
+                    { label: "Auto", value: "auto" },
+                    { label: "Cover", value: "cover" },
+                    { label: "Contain", value: "contain" },
+                    { label: "Custom", value: "custom" },
+                ]}
+                onChange={(value) => {
+                    onSizeChange(
+                        value === "custom" ? "100% 100%" : value
+                    );
+                }}
+            />
+
+            {size && !["auto", "cover", "contain"].includes(size) && (
+                <StyleInput
+                    label="Custom Size"
+                    value={size}
+                    placeholder="100% 100%"
+                    onChange={onSizeChange}
+                />
+            )}
+
+            <StyleSelect
+                label="Position"
+                value={position || "center"}
+                options={[
+                    { label: "Center", value: "center" },
+                    { label: "Top", value: "top" },
+                    { label: "Bottom", value: "bottom" },
+                    { label: "Left", value: "left" },
+                    { label: "Right", value: "right" },
+                    { label: "Top Left", value: "top left" },
+                    { label: "Top Right", value: "top right" },
+                    { label: "Bottom Left", value: "bottom left" },
+                    { label: "Bottom Right", value: "bottom right" },
+                    { label: "Custom", value: "custom" },
+                ]}
+                onChange={(value) => {
+                    onPositionChange(
+                        value === "custom" ? "50% 50%" : value
+                    );
+                }}
+            />
+
+            {position && ![
+                "center",
+                "top",
+                "bottom",
+                "left",
+                "right",
+                "top left",
+                "top right",
+                "bottom left",
+                "bottom right",
+            ].includes(position) && (
+                    <StyleInput
+                        label="Custom Position"
+                        value={position}
+                        placeholder="50% 50%"
+                        onChange={onPositionChange}
+                    />
+                )}
+
+            <StyleSelect
+                label="Repeat"
+                value={repeat || "no-repeat"}
+                options={[
+                    { label: "No Repeat", value: "no-repeat" },
+                    { label: "Repeat", value: "repeat" },
+                    { label: "Repeat X", value: "repeat-x" },
+                    { label: "Repeat Y", value: "repeat-y" },
+                ]}
+                onChange={onRepeatChange}
+            />
+
+            <StyleSelect
+                label="Attachment"
+                value={attachment || "scroll"}
+                options={[
+                    { label: "Scroll", value: "scroll" },
+                    { label: "Fixed", value: "fixed" },
+                    { label: "Local", value: "local" },
+                ]}
+                onChange={onAttachmentChange}
+            />
+        </div>
+    );
+}
+
+/* =========================================================
    GRID CONTROLS
 ========================================================= */
 
@@ -917,12 +1196,38 @@ function GridControls({
                 </div>
             </div>
 
-            <StyleInput
-                label="Rows"
-                value={rows}
-                placeholder="repeat(2, minmax(0, auto))"
-                onChange={onRowsChange}
-            />
+            <div>
+                <label className="mb-2 block text-xs font-medium text-gray-500">
+                    Rows
+                </label>
+                <div className="grid grid-cols-6 gap-1.5">
+                    {[1, 2, 3, 4, 5, 6].map((value) => {
+                        const rowCount = Number(
+                            rows?.match(/repeat\(\s*(\d+)/)?.[1] || 2
+                        );
+                        return (
+                            <button
+                                key={value}
+                                type="button"
+                                onClick={() =>
+                                    onRowsChange(
+                                        `repeat(${value}, minmax(0, auto))`
+                                    )
+                                }
+                                className={`rounded-md border px-2 py-1.5 text-xs font-medium transition ${rowCount === value
+                                    ? "border-blue-500 bg-blue-50 text-blue-600"
+                                    : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50"
+                                    }`}
+                            >
+                                {value}
+                            </button>
+                        );
+                    })}
+                </div>
+                <p className="mt-1.5 text-[11px] text-gray-400">
+                    Choose how many rows your grid has.
+                </p>
+            </div>
 
             <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -1192,6 +1497,780 @@ function BoxModelEditor({
                 </div>
 
             </div>
+        </div>
+    );
+}
+
+/* =========================================================
+   FILTER EDITOR
+========================================================= */
+
+interface FilterEditorProps {
+    value?: string;
+    onChange: (value: string) => void;
+    backdrop?: boolean;
+}
+
+const FILTER_DEFINITIONS = [
+    {
+        key: "blur",
+        label: "Blur",
+        unit: "px",
+        min: 0,
+        max: 30,
+        step: 1,
+        defaultValue: 0,
+    },
+    {
+        key: "brightness",
+        label: "Brightness",
+        unit: "%",
+        min: 0,
+        max: 200,
+        step: 1,
+        defaultValue: 100,
+    },
+    {
+        key: "contrast",
+        label: "Contrast",
+        unit: "%",
+        min: 0,
+        max: 200,
+        step: 1,
+        defaultValue: 100,
+    },
+    {
+        key: "grayscale",
+        label: "Grayscale",
+        unit: "%",
+        min: 0,
+        max: 100,
+        step: 1,
+        defaultValue: 0,
+    },
+    {
+        key: "hue-rotate",
+        label: "Hue Rotate",
+        unit: "deg",
+        min: 0,
+        max: 360,
+        step: 1,
+        defaultValue: 0,
+    },
+    {
+        key: "invert",
+        label: "Invert",
+        unit: "%",
+        min: 0,
+        max: 100,
+        step: 1,
+        defaultValue: 0,
+    },
+    {
+        key: "saturate",
+        label: "Saturate",
+        unit: "%",
+        min: 0,
+        max: 200,
+        step: 1,
+        defaultValue: 100,
+    },
+    {
+        key: "sepia",
+        label: "Sepia",
+        unit: "%",
+        min: 0,
+        max: 100,
+        step: 1,
+        defaultValue: 0,
+    },
+] as const;
+
+type FilterKey = (typeof FILTER_DEFINITIONS)[number]["key"];
+
+function parseFilterFunction(
+    value: string | undefined,
+    key: FilterKey,
+    fallback: number
+) {
+    if (!value) {
+        return fallback;
+    }
+
+    const escapedKey = key.replace("-", "\\-");
+    const match = value.match(
+        new RegExp(
+            `${escapedKey}\\((-?\\d*\\.?\\d+)`
+        )
+    );
+
+    if (!match) {
+        return fallback;
+    }
+
+    const parsed = Number(match[1]);
+
+    return Number.isFinite(parsed)
+        ? parsed
+        : fallback;
+}
+
+function updateFilterFunction(
+    value: string | undefined,
+    key: FilterKey,
+    nextValue: number,
+    unit: string
+) {
+    const current = (value || "").trim();
+
+    const functionPattern = new RegExp(
+        `${key.replace("-", "\\-")}\\([^)]*\\)`,
+        "i"
+    );
+
+    const nextFunction =
+        `${key}(${nextValue}${unit})`;
+
+    if (functionPattern.test(current)) {
+        return current
+            .replace(
+                functionPattern,
+                nextFunction
+            )
+            .replace(/\s+/g, " ")
+            .trim();
+    }
+
+    return `${current} ${nextFunction}`.trim();
+}
+
+function FilterEditor({
+    value,
+    onChange,
+    backdrop = false,
+}: FilterEditorProps) {
+    const hasValue =
+        Boolean(value && value.trim());
+
+    return (
+        <div className="space-y-4 rounded-lg border bg-gray-50 p-3">
+            <div className="text-[11px] text-gray-400">
+                {backdrop
+                    ? "Apply visual effects to the content behind this element."
+                    : "Apply visual effects directly to this element."}
+            </div>
+
+            {FILTER_DEFINITIONS.map((definition) => {
+                const currentValue =
+                    parseFilterFunction(
+                        value,
+                        definition.key,
+                        definition.defaultValue
+                    );
+
+                return (
+                    <div key={definition.key}>
+                        <div className="mb-1.5 flex items-center justify-between">
+                            <label className="text-xs font-medium text-gray-500">
+                                {definition.label}
+                            </label>
+
+                            <span className="text-[11px] text-gray-400">
+                                {currentValue}
+                                {definition.unit}
+                            </span>
+                        </div>
+
+                        <input
+                            type="range"
+                            min={definition.min}
+                            max={definition.max}
+                            step={definition.step}
+                            value={currentValue}
+                            onChange={(event) => {
+                                const nextValue =
+                                    Number(
+                                        event.target.value
+                                    );
+
+                                onChange(
+                                    updateFilterFunction(
+                                        value,
+                                        definition.key,
+                                        nextValue,
+                                        definition.unit
+                                    )
+                                );
+                            }}
+                            className="w-full"
+                        />
+                    </div>
+                );
+            })}
+
+            {hasValue && (
+                <div>
+                    <label className="mb-1.5 block text-xs font-medium text-gray-500">
+                        Generated CSS
+                    </label>
+
+                    <div className="break-all rounded-md border bg-white px-2.5 py-2 text-[11px] text-gray-500">
+                        {value}
+                    </div>
+                </div>
+            )}
+
+            <button
+                type="button"
+                onClick={() => onChange("")}
+                className="
+                    w-full
+                    rounded-md
+                    border
+                    px-3
+                    py-2
+                    text-sm
+                    font-medium
+                    text-gray-500
+                    transition
+                    hover:bg-gray-50
+                "
+            >
+                Reset {backdrop ? "Backdrop Filter" : "Filter"}
+            </button>
+        </div>
+    );
+}
+
+/* =========================================================
+   PER-SIDE BORDER EDITOR
+========================================================= */
+
+interface BorderSideEditorProps {
+    getStyleValue: (property: string) => string | undefined;
+    updateStyle: (property: string, value: string) => void;
+}
+
+const BORDER_STYLE_OPTIONS = [
+    { label: "Use Overall", value: "" },
+    { label: "None", value: "none" },
+    { label: "Solid", value: "solid" },
+    { label: "Dashed", value: "dashed" },
+    { label: "Dotted", value: "dotted" },
+    { label: "Double", value: "double" },
+];
+
+function BorderSideEditor({
+    getStyleValue,
+    updateStyle,
+}: BorderSideEditorProps) {
+    const sides = [
+        {
+            key: "Top",
+            style: "borderTopStyle",
+            width: "borderTopWidth",
+            color: "borderTopColor",
+        },
+        {
+            key: "Right",
+            style: "borderRightStyle",
+            width: "borderRightWidth",
+            color: "borderRightColor",
+        },
+        {
+            key: "Bottom",
+            style: "borderBottomStyle",
+            width: "borderBottomWidth",
+            color: "borderBottomColor",
+        },
+        {
+            key: "Left",
+            style: "borderLeftStyle",
+            width: "borderLeftWidth",
+            color: "borderLeftColor",
+        },
+    ] as const;
+
+    return (
+        <div className="space-y-3 rounded-lg border bg-gray-50 p-3">
+            <div>
+                <div className="text-xs font-semibold text-gray-600">
+                    Individual Sides
+                </div>
+                <p className="mt-1 text-[11px] text-gray-400">
+                    Override the overall border for any individual side.
+                </p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+                {sides.map((side) => (
+                    <div
+                        key={side.key}
+                        className="space-y-3 rounded-md border bg-white p-3"
+                    >
+                        <div className="text-xs font-semibold text-gray-500">
+                            {side.key}
+                        </div>
+
+                        <StyleSelect
+                            label="Style"
+                            value={
+                                getStyleValue(side.style)
+                            }
+                            options={BORDER_STYLE_OPTIONS}
+                            onChange={(value) =>
+                                updateStyle(
+                                    side.style,
+                                    value
+                                )
+                            }
+                        />
+
+                        <DimensionInput
+                            label="Width"
+                            value={
+                                getStyleValue(side.width)
+                            }
+                            placeholder="0px"
+                            onChange={(value) =>
+                                updateStyle(
+                                    side.width,
+                                    value
+                                )
+                            }
+                        />
+
+                        <ColorInput
+                            label="Color"
+                            value={
+                                getStyleValue(side.color)
+                            }
+                            placeholder="#000000"
+                            onChange={(value) =>
+                                updateStyle(
+                                    side.color,
+                                    value
+                                )
+                            }
+                        />
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+}
+
+
+/* =========================================================
+   MULTI-LAYER SHADOW EDITOR
+========================================================= */
+
+interface ShadowLayer {
+    id: string;
+    x: string;
+    y: string;
+    blur: string;
+    spread: string;
+    color: string;
+    inset: boolean;
+}
+
+interface ShadowEditorProps {
+    value?: string;
+    onChange: (value: string) => void;
+}
+
+function splitShadowLayers(value?: string) {
+    const input = (value || "").trim();
+
+    if (!input || input === "none") {
+        return [];
+    }
+
+    const layers: string[] = [];
+    let current = "";
+    let depth = 0;
+
+    for (const character of input) {
+        if (character === "(") {
+            depth += 1;
+        } else if (character === ")") {
+            depth = Math.max(0, depth - 1);
+        }
+
+        if (character === "," && depth === 0) {
+            if (current.trim()) {
+                layers.push(current.trim());
+            }
+            current = "";
+            continue;
+        }
+
+        current += character;
+    }
+
+    if (current.trim()) {
+        layers.push(current.trim());
+    }
+
+    return layers;
+}
+
+function parseShadowLayer(
+    value: string,
+    index: number
+): ShadowLayer {
+    const colorMatch = value.match(
+        /(?:rgba?|hsla?)\([^)]*\)|#[0-9a-fA-F]{3,8}|\b(?:transparent|currentColor)\b/i
+    );
+
+    const color =
+        colorMatch?.[0] || "rgba(0,0,0,0.15)";
+
+    let remaining = value
+        .replace(colorMatch?.[0] || "", "")
+        .trim();
+
+    const inset = /\binset\b/i.test(remaining);
+
+    remaining = remaining
+        .replace(/\binset\b/gi, "")
+        .trim();
+
+    const dimensions = remaining
+        .split(/\s+/)
+        .filter(Boolean);
+
+    return {
+        id: `${index}-${value}`,
+        x: dimensions[0] || "0px",
+        y: dimensions[1] || "4px",
+        blur: dimensions[2] || "12px",
+        spread: dimensions[3] || "0px",
+        color,
+        inset,
+    };
+}
+
+function parseShadowLayers(
+    value?: string
+): ShadowLayer[] {
+    return splitShadowLayers(value).map(
+        (layer, index) =>
+            parseShadowLayer(layer, index)
+    );
+}
+
+function buildShadowLayer(
+    layer: ShadowLayer
+) {
+    const parts = [
+        layer.inset ? "inset" : "",
+        layer.x.trim() || "0px",
+        layer.y.trim() || "4px",
+        layer.blur.trim() || "12px",
+        layer.spread.trim() || "0px",
+        layer.color.trim() || "rgba(0,0,0,0.15)",
+    ].filter(Boolean);
+
+    return parts.join(" ");
+}
+
+function buildShadowValue(
+    layers: ShadowLayer[]
+) {
+    if (layers.length === 0) {
+        return "none";
+    }
+
+    return layers
+        .map(buildShadowLayer)
+        .join(", ");
+}
+
+function ShadowEditor({
+    value,
+    onChange,
+}: ShadowEditorProps) {
+    const layers = parseShadowLayers(value);
+
+    function updateLayer(
+        index: number,
+        changes: Partial<ShadowLayer>
+    ) {
+        const nextLayers = layers.map(
+            (layer, layerIndex) =>
+                layerIndex === index
+                    ? {
+                        ...layer,
+                        ...changes,
+                    }
+                    : layer
+        );
+
+        onChange(
+            buildShadowValue(nextLayers)
+        );
+    }
+
+    function addLayer() {
+        const nextLayer: ShadowLayer = {
+            id: `${Date.now()}`,
+            x: "0px",
+            y: "4px",
+            blur: "12px",
+            spread: "0px",
+            color: "rgba(0,0,0,0.15)",
+            inset: false,
+        };
+
+        onChange(
+            buildShadowValue([
+                ...layers,
+                nextLayer,
+            ])
+        );
+    }
+
+    function removeLayer(index: number) {
+        onChange(
+            buildShadowValue(
+                layers.filter(
+                    (_, layerIndex) =>
+                        layerIndex !== index
+                )
+            )
+        );
+    }
+
+    return (
+        <div className="space-y-3">
+            <div className="flex items-center justify-between">
+                <div>
+                    <div className="text-xs font-semibold text-gray-600">
+                        Shadow Layers
+                    </div>
+                    <p className="mt-1 text-[11px] text-gray-400">
+                        Stack multiple shadows for more control.
+                    </p>
+                </div>
+
+                <button
+                    type="button"
+                    onClick={addLayer}
+                    className="
+                        rounded-md
+                        border
+                        border-blue-200
+                        bg-blue-50
+                        px-2.5
+                        py-1.5
+                        text-xs
+                        font-medium
+                        text-blue-600
+                        transition
+                        hover:bg-blue-100
+                    "
+                >
+                    + Add Shadow
+                </button>
+            </div>
+
+            {layers.length === 0 && (
+                <div className="rounded-lg border border-dashed bg-gray-50 p-4 text-center">
+                    <div className="text-xs font-medium text-gray-500">
+                        No shadows
+                    </div>
+                    <div className="mt-1 text-[11px] text-gray-400">
+                        Add a shadow layer to get started.
+                    </div>
+                </div>
+            )}
+
+            {layers.map((layer, index) => (
+                <div
+                    key={layer.id}
+                    className="space-y-3 rounded-lg border bg-gray-50 p-3"
+                >
+                    <div className="flex items-center justify-between">
+                        <span className="text-xs font-semibold text-gray-600">
+                            Shadow {index + 1}
+                        </span>
+
+                        <button
+                            type="button"
+                            onClick={() =>
+                                removeLayer(index)
+                            }
+                            className="
+                                rounded-md
+                                border
+                                px-2
+                                py-1
+                                text-[11px]
+                                font-medium
+                                text-gray-500
+                                transition
+                                hover:bg-white
+                                hover:text-red-500
+                            "
+                        >
+                            Remove
+                        </button>
+                    </div>
+
+                    <div className="space-y-3 rounded-md border bg-white p-3">
+                        {[
+                            {
+                                key: "x" as const,
+                                label: "X Offset",
+                                min: -50,
+                                max: 50,
+                                fallback: 0,
+                            },
+                            {
+                                key: "y" as const,
+                                label: "Y Offset",
+                                min: -50,
+                                max: 50,
+                                fallback: 4,
+                            },
+                            {
+                                key: "blur" as const,
+                                label: "Blur",
+                                min: 0,
+                                max: 100,
+                                fallback: 12,
+                            },
+                            {
+                                key: "spread" as const,
+                                label: "Spread",
+                                min: -50,
+                                max: 50,
+                                fallback: 0,
+                            },
+                        ].map((control) => {
+                            const numericValue = Number.parseFloat(
+                                layer[control.key]
+                            );
+                            const value = Number.isFinite(numericValue)
+                                ? Math.min(
+                                    control.max,
+                                    Math.max(control.min, numericValue)
+                                )
+                                : control.fallback;
+
+                            return (
+                                <div key={control.key}>
+                                    <div className="mb-1.5 flex items-center justify-between">
+                                        <label className="text-xs font-medium text-gray-500">
+                                            {control.label}
+                                        </label>
+                                        <span className="rounded-md bg-gray-50 px-2 py-0.5 text-[11px] font-medium text-gray-500">
+                                            {value}px
+                                        </span>
+                                    </div>
+
+                                    <input
+                                        type="range"
+                                        min={control.min}
+                                        max={control.max}
+                                        step="1"
+                                        value={value}
+                                        onChange={(event) =>
+                                            updateLayer(index, {
+                                                [control.key]: `${event.target.value}px`,
+                                            })
+                                        }
+                                        className="w-full cursor-pointer"
+                                        aria-label={control.label}
+                                    />
+
+                                    <div className="mt-0.5 flex justify-between text-[10px] text-gray-300">
+                                        <span>{control.min}px</span>
+                                        <span>{control.max}px</span>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+
+                    <ColorInput
+                        label="Color"
+                        value={layer.color}
+                        placeholder="rgba(0,0,0,0.15)"
+                        onChange={(value) =>
+                            updateLayer(index, {
+                                color: value,
+                            })
+                        }
+                    />
+
+                    <label className="flex items-center gap-2 text-xs font-medium text-gray-600">
+                        <input
+                            type="checkbox"
+                            checked={layer.inset}
+                            onChange={(event) =>
+                                updateLayer(index, {
+                                    inset: event.target
+                                        .checked,
+                                })
+                            }
+                        />
+                        Inset shadow
+                    </label>
+
+                    <div>
+                        <div className="mb-1.5 text-[11px] font-medium text-gray-400">
+                            Preview
+                        </div>
+
+                        <div
+                            className="h-12 rounded-md border bg-white"
+                            style={{
+                                boxShadow:
+                                    buildShadowLayer(
+                                        layer
+                                    ),
+                            }}
+                        />
+                    </div>
+                </div>
+            ))}
+
+            {layers.length > 0 && (
+                <div>
+                    <div className="mb-1.5 text-[11px] font-medium text-gray-400">
+                        Generated CSS
+                    </div>
+
+                    <div className="break-all rounded-md border bg-white px-2.5 py-2 text-[11px] text-gray-500">
+                        box-shadow:{" "}
+                        {buildShadowValue(layers)}
+                    </div>
+                </div>
+            )}
+
+            {layers.length > 0 && (
+                <button
+                    type="button"
+                    onClick={() => onChange("none")}
+                    className="
+                        w-full
+                        rounded-md
+                        border
+                        px-3
+                        py-2
+                        text-sm
+                        font-medium
+                        text-gray-500
+                        transition
+                        hover:bg-gray-50
+                    "
+                >
+                    Clear All Shadows
+                </button>
+            )}
         </div>
     );
 }
@@ -2198,6 +3277,12 @@ export default function RightPanel({
                 state.setImageAsset
         );
 
+    const addAsset =
+        useEditorStore(
+            (state) =>
+                state.addAsset
+        );
+
     const updateResponsiveNodeStyles =
         useEditorStore(
             (state) =>
@@ -2206,6 +3291,12 @@ export default function RightPanel({
 
     const imageInputRef =
         useRef<HTMLInputElement>(null);
+
+    const backgroundImageInputRef =
+        useRef<HTMLInputElement>(null);
+
+    const [showBackgroundAssetLibrary, setShowBackgroundAssetLibrary] =
+        useState(false);
 
     const node =
         selectedNodeId
@@ -2501,6 +3592,17 @@ export default function RightPanel({
                 "gradient("
             )
         );
+
+    const hasBackgroundImage =
+        !!currentBackgroundImage &&
+        !hasGradient;
+
+    const backgroundImageUrl =
+        currentBackgroundImage?.startsWith("url(")
+            ? currentBackgroundImage
+                .replace(/^url\(["']?/, "")
+                .replace(/["']?\)$/, "")
+            : "";
 
     /* =====================================================
        RENDER
@@ -2854,39 +3956,27 @@ export default function RightPanel({
                                     }
                                     options={[
                                         {
-                                            label:
-                                                "Default",
-                                            value:
-                                                "",
+                                            label: "Default",
+                                            value: "",
                                         },
                                         {
-                                            label:
-                                                "Contain",
-                                            value:
-                                                "contain",
+                                            label: "Contain",
+                                            value: "contain",
                                         },
                                         {
-                                            label:
-                                                "Cover",
-                                            value:
-                                                "cover",
+                                            label: "Cover",
+                                            value: "cover",
                                         },
                                         {
-                                            label:
-                                                "Fill",
-                                            value:
-                                                "fill",
+                                            label: "Fill",
+                                            value: "fill",
                                         },
                                         {
-                                            label:
-                                                "None",
-                                            value:
-                                                "none",
+                                            label: "None",
+                                            value: "none",
                                         },
                                     ]}
-                                    onChange={(
-                                        value
-                                    ) =>
+                                    onChange={(value) =>
                                         updateStyle(
                                             "objectFit",
                                             value
@@ -2894,63 +3984,62 @@ export default function RightPanel({
                                     }
                                 />
 
-                            </InspectorSection>
-                        )}
-
-                        {/* ==================================================
-                            BUTTON LINK
-                        ================================================== */}
-
-                        {node.type === "button" && (
-                            <InspectorSection
-                                title="Link"
-                            >
-
-                                <StyleInput
-                                    label="URL"
-                                    value={
-                                        node.styles?.href
-                                    }
-                                    placeholder="https://example.com"
-                                    onChange={(
-                                        value
-                                    ) =>
-                                        updateBaseStyle(
-                                            "href",
-                                            value
-                                        )
-                                    }
-                                />
-
                                 <StyleSelect
-                                    label="Target"
+                                    label="Object Position"
                                     value={
-                                        node.styles?.target
+                                        getStyleValue(
+                                            "objectPosition"
+                                        )
                                     }
                                     options={[
                                         {
-                                            label:
-                                                "Same Window",
-                                            value:
-                                                "_self",
+                                            label: "Default",
+                                            value: "",
                                         },
                                         {
-                                            label:
-                                                "New Tab",
-                                            value:
-                                                "_blank",
+                                            label: "Center",
+                                            value: "center",
+                                        },
+                                        {
+                                            label: "Top",
+                                            value: "center top",
+                                        },
+                                        {
+                                            label: "Bottom",
+                                            value: "center bottom",
+                                        },
+                                        {
+                                            label: "Left",
+                                            value: "left center",
+                                        },
+                                        {
+                                            label: "Right",
+                                            value: "right center",
+                                        },
+                                        {
+                                            label: "Top Left",
+                                            value: "left top",
+                                        },
+                                        {
+                                            label: "Top Right",
+                                            value: "right top",
+                                        },
+                                        {
+                                            label: "Bottom Left",
+                                            value: "left bottom",
+                                        },
+                                        {
+                                            label: "Bottom Right",
+                                            value: "right bottom",
                                         },
                                     ]}
-                                    onChange={(
-                                        value
-                                    ) =>
-                                        updateBaseStyle(
-                                            "target",
+                                    onChange={(value) =>
+                                        updateStyle(
+                                            "objectPosition",
                                             value
                                         )
                                     }
                                 />
-
                             </InspectorSection>
                         )}
 
@@ -3333,6 +4422,35 @@ export default function RightPanel({
                                 }
                             />
 
+                            <StyleSelect
+                                label="Visibility"
+                                value={
+                                    getStyleValue(
+                                        "visibility"
+                                    ) || ""
+                                }
+                                options={[
+                                    {
+                                        label: "Default",
+                                        value: "",
+                                    },
+                                    {
+                                        label: "Visible",
+                                        value: "visible",
+                                    },
+                                    {
+                                        label: "Hidden",
+                                        value: "hidden",
+                                    },
+                                ]}
+                                onChange={(value) =>
+                                    updateStyle(
+                                        "visibility",
+                                        value
+                                    )
+                                }
+                            />
+
                             <DimensionInput
                                 label="Width"
                                 value={
@@ -3440,6 +4558,181 @@ export default function RightPanel({
                                     )
                                 }
                             />
+
+                            {/* ==================================================
+                                ASPECT RATIO
+                            ================================================== */}
+
+                            <StyleSelect
+                                label="Aspect Ratio"
+                                value={
+                                    getStyleValue(
+                                        "aspectRatio"
+                                    ) || ""
+                                }
+                                options={[
+                                    {
+                                        label: "Auto",
+                                        value: "",
+                                    },
+                                    {
+                                        label: "1 : 1",
+                                        value: "1 / 1",
+                                    },
+                                    {
+                                        label: "4 : 3",
+                                        value: "4 / 3",
+                                    },
+                                    {
+                                        label: "3 : 2",
+                                        value: "3 / 2",
+                                    },
+                                    {
+                                        label: "16 : 9",
+                                        value: "16 / 9",
+                                    },
+                                    {
+                                        label: "21 : 9",
+                                        value: "21 / 9",
+                                    },
+                                    {
+                                        label: "Custom",
+                                        value: "custom",
+                                    },
+                                ]}
+                                onChange={(value) => {
+                                    /*
+                                     * Canvas resizing creates explicit width
+                                     * and height values. If height remains a
+                                     * fixed pixel value, CSS aspect-ratio cannot
+                                     * change the element's proportions later.
+                                     *
+                                     * When an aspect ratio is selected, keep the
+                                     * current width but release the explicit
+                                     * height so CSS can calculate it from the
+                                     * selected ratio.
+                                     */
+                                    const nextRatio =
+                                        value === "custom"
+                                            ? "1 / 1"
+                                            : value;
+
+                                    if (
+                                        nextRatio
+                                    ) {
+                                        updateResponsiveNodeStyles(
+                                            node.id,
+                                            viewport,
+                                            {
+                                                aspectRatio:
+                                                    nextRatio,
+                                                height:
+                                                    "auto",
+                                            }
+                                        );
+                                        return;
+                                    }
+
+                                    /*
+                                     * Returning to Auto should restore an
+                                     * explicit height based on the element's
+                                     * current rendered size, so switching back
+                                     * does not unexpectedly collapse the node.
+                                     */
+                                    const element =
+                                        document.querySelector(
+                                            `[data-node-id="${node.id}"]`
+                                        ) as HTMLElement | null;
+
+                                    const viewportElement =
+                                        document.querySelector(
+                                            "[data-viewport]"
+                                        ) as HTMLElement | null;
+
+                                    const currentHeight =
+                                        element?.getBoundingClientRect()
+                                            .height;
+
+                                    const viewportWidth =
+                                        viewportElement?.getBoundingClientRect()
+                                            .width;
+
+                                    const logicalHeight =
+                                        currentHeight &&
+                                            viewportWidth
+                                            ? currentHeight /
+                                            (
+                                                viewportWidth /
+                                                (
+                                                    parseFloat(
+                                                        viewportElement
+                                                            ?.style
+                                                            .width || ""
+                                                    ) || viewportWidth
+                                                )
+                                            )
+                                            : currentHeight;
+
+                                    updateResponsiveNodeStyles(
+                                        node.id,
+                                        viewport,
+                                        {
+                                            aspectRatio:
+                                                "",
+                                            height:
+                                                logicalHeight &&
+                                                    Number.isFinite(
+                                                        logicalHeight
+                                                    )
+                                                    ? `${Math.round(
+                                                        logicalHeight
+                                                    )}px`
+                                                    : "auto",
+                                        }
+                                    );
+                                }}
+                            />
+
+                            {(() => {
+                                const aspectRatio =
+                                    getStyleValue(
+                                        "aspectRatio"
+                                    );
+
+                                const presetRatios = [
+                                    "",
+                                    "1 / 1",
+                                    "4 / 3",
+                                    "3 / 2",
+                                    "16 / 9",
+                                    "21 / 9",
+                                ];
+
+                                return (
+                                    aspectRatio &&
+                                    !presetRatios.includes(
+                                        aspectRatio
+                                    ) && (
+                                        <StyleInput
+                                            label="Custom Ratio"
+                                            value={
+                                                aspectRatio
+                                            }
+                                            placeholder="16 / 9"
+                                            onChange={(value) =>
+                                                updateStyle(
+                                                    "aspectRatio",
+                                                    value
+                                                )
+                                            }
+                                        />
+                                    )
+                                );
+                            })()}
+
+                            <p className="text-[11px] leading-relaxed text-gray-400">
+                                Controls the width-to-height proportion of the element.
+                            </p>
 
                             <StyleSelect
                                 label="Position"
@@ -4504,6 +5797,16 @@ export default function RightPanel({
                                 }
                             />
 
+                            <DesignTokenColorControl
+                                value={getStyleValue("color")}
+                                onChange={(value) =>
+                                    updateStyle(
+                                        "color",
+                                        value
+                                    )
+                                }
+                            />
+
                             {/* BACKGROUND TYPE */}
 
                             <StyleSelect
@@ -4511,33 +5814,39 @@ export default function RightPanel({
                                 value={
                                     hasGradient
                                         ? "gradient"
-                                        : "solid"
+                                        : hasBackgroundImage
+                                            ? "image"
+                                            : "solid"
                                 }
                                 options={[
                                     {
-                                        label:
-                                            "Solid Color",
-                                        value:
-                                            "solid",
+                                        label: "Solid Color",
+                                        value: "solid",
                                     },
                                     {
-                                        label:
-                                            "Gradient",
-                                        value:
-                                            "gradient",
+                                        label: "Gradient",
+                                        value: "gradient",
+                                    },
+                                    {
+                                        label: "Image",
+                                        value: "image",
                                     },
                                 ]}
-                                onChange={(
-                                    value
-                                ) => {
-                                    if (
-                                        value ===
-                                        "gradient"
-                                    ) {
+                                onChange={(value) => {
+                                    if (value === "gradient") {
                                         updateStyle(
                                             "backgroundImage",
                                             "linear-gradient(90deg, #ff0000, #0000ff)"
                                         );
+                                    } else if (value === "image") {
+                                        updateStyle(
+                                            "backgroundImage",
+                                            "url(https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1200&q=80)"
+                                        );
+                                        updateStyle("backgroundSize", "cover");
+                                        updateStyle("backgroundPosition", "center");
+                                        updateStyle("backgroundRepeat", "no-repeat");
+                                        updateStyle("backgroundAttachment", "scroll");
                                     } else {
                                         updateStyle(
                                             "backgroundImage",
@@ -4550,23 +5859,35 @@ export default function RightPanel({
                             {/* SOLID COLOR */}
 
                             {!hasGradient && (
-                                <ColorInput
-                                    label="Background Color"
-                                    value={
-                                        getStyleValue(
-                                            "backgroundColor"
-                                        )
-                                    }
-                                    placeholder="#ffffff"
-                                    onChange={(
-                                        value
-                                    ) =>
-                                        updateStyle(
-                                            "backgroundColor",
+                                <>
+                                    <ColorInput
+                                        label="Background Color"
+                                        value={
+                                            getStyleValue(
+                                                "backgroundColor"
+                                            )
+                                        }
+                                        placeholder="#ffffff"
+                                        onChange={(
                                             value
-                                        )
-                                    }
-                                />
+                                        ) =>
+                                            updateStyle(
+                                                "backgroundColor",
+                                                value
+                                            )
+                                        }
+                                    />
+
+                                    <DesignTokenColorControl
+                                        value={getStyleValue("backgroundColor")}
+                                        onChange={(value) =>
+                                            updateStyle(
+                                                "backgroundColor",
+                                                value
+                                            )
+                                        }
+                                    />
+                                </>
                             )}
 
                             {/* GRADIENT */}
@@ -4585,6 +5906,133 @@ export default function RightPanel({
                                         )
                                     }
                                 />
+                            )}
+
+                            {hasBackgroundImage && (
+                                <>
+                                    <input
+                                        ref={backgroundImageInputRef}
+                                        type="file"
+                                        accept="image/*"
+                                        className="hidden"
+                                        onChange={(event) => {
+                                            const file = event.target.files?.[0];
+                                            if (!file) return;
+
+                                            const reader = new FileReader();
+                                            reader.onload = () => {
+                                                const result = reader.result;
+                                                if (typeof result !== "string") return;
+
+                                                const asset: ProjectAsset = {
+                                                    id: `asset-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+                                                    name: file.name,
+                                                    type: file.type,
+                                                    size: file.size,
+                                                    source: result,
+                                                };
+
+                                                addAsset(asset);
+                                                updateStyle(
+                                                    "backgroundImage",
+                                                    `url(${result})`
+                                                );
+                                            };
+                                            reader.readAsDataURL(file);
+                                            event.target.value = "";
+                                        }}
+                                    />
+
+                                    <BackgroundImageControls
+                                        imageUrl={backgroundImageUrl}
+                                        size={getStyleValue("backgroundSize")}
+                                        position={getStyleValue("backgroundPosition")}
+                                        repeat={getStyleValue("backgroundRepeat")}
+                                        attachment={getStyleValue("backgroundAttachment")}
+                                        assets={Object.values(project.assets)}
+                                        onImageUrlChange={(value) =>
+                                            updateStyle(
+                                                "backgroundImage",
+                                                value ? `url(${value})` : ""
+                                            )
+                                        }
+                                        onImportFromPC={() =>
+                                            backgroundImageInputRef.current?.click()
+                                        }
+                                        onOpenAssetLibrary={() =>
+                                            setShowBackgroundAssetLibrary((current) => !current)
+                                        }
+                                        onSelectAsset={(asset) =>
+                                            updateStyle(
+                                                "backgroundImage",
+                                                `url(${asset.source})`
+                                            )
+                                        }
+                                        onSizeChange={(value) =>
+                                            updateStyle("backgroundSize", value)
+                                        }
+                                        onPositionChange={(value) =>
+                                            updateStyle("backgroundPosition", value)
+                                        }
+                                        onRepeatChange={(value) =>
+                                            updateStyle("backgroundRepeat", value)
+                                        }
+                                        onAttachmentChange={(value) =>
+                                            updateStyle("backgroundAttachment", value)
+                                        }
+                                    />
+
+                                    {showBackgroundAssetLibrary && (
+                                        <div className="mt-3 rounded-lg border bg-white p-3">
+                                            <div className="mb-2 flex items-center justify-between">
+                                                <span className="text-xs font-semibold text-gray-600">
+                                                    Asset Library
+                                                </span>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setShowBackgroundAssetLibrary(false)}
+                                                    className="text-xs text-gray-400 hover:text-gray-600"
+                                                >
+                                                    Close
+                                                </button>
+                                            </div>
+                                            {Object.values(project.assets).filter((asset) => asset.type.startsWith("image/")).length === 0 ? (
+                                                <p className="text-xs text-gray-400">
+                                                    No images in your asset library yet.
+                                                </p>
+                                            ) : (
+                                                <div className="grid grid-cols-3 gap-2">
+                                                    {Object.values(project.assets)
+                                                        .filter((asset) => asset.type.startsWith("image/"))
+                                                        .map((asset) => (
+                                                            <button
+                                                                key={asset.id}
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    updateStyle(
+                                                                        "backgroundImage",
+                                                                        `url(${asset.source})`
+                                                                    );
+                                                                    setShowBackgroundAssetLibrary(false);
+                                                                }}
+                                                                title={asset.name}
+                                                                className="overflow-hidden rounded-md border bg-gray-50 text-left transition hover:border-blue-400"
+                                                            >
+                                                                <img
+                                                                    src={asset.source}
+                                                                    alt={asset.name}
+                                                                    className="h-16 w-full object-cover"
+                                                                />
+                                                                <span className="block truncate px-1.5 py-1 text-[10px] text-gray-500">
+                                                                    {asset.name}
+                                                                </span>
+                                                            </button>
+                                                        ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                </>
                             )}
 
                             {/* OPACITY */}
@@ -4721,6 +6169,15 @@ export default function RightPanel({
                                         "borderRadius",
                                         value
                                     )
+                                }
+                            />
+
+                            <BorderSideEditor
+                                getStyleValue={
+                                    getStyleValue
+                                }
+                                updateStyle={
+                                    updateStyle
                                 }
                             />
 
@@ -5033,6 +6490,53 @@ export default function RightPanel({
 
 
                         {/* ==================================================
+    FILTERS
+================================================== */}
+
+                        <InspectorSection title="Filters">
+
+                            <FilterEditor
+                                value={
+                                    getStyleValue(
+                                        "filter"
+                                    )
+                                }
+                                onChange={(value) =>
+                                    updateStyle(
+                                        "filter",
+                                        value
+                                    )
+                                }
+                            />
+
+                        </InspectorSection>
+
+
+                        {/* ==================================================
+    BACKDROP FILTERS
+================================================== */}
+
+                        <InspectorSection title="Backdrop Filters">
+
+                            <FilterEditor
+                                value={
+                                    getStyleValue(
+                                        "backdropFilter"
+                                    )
+                                }
+                                onChange={(value) =>
+                                    updateStyle(
+                                        "backdropFilter",
+                                        value
+                                    )
+                                }
+                                backdrop
+                            />
+
+                        </InspectorSection>
+
+
+                        {/* ==================================================
     TRANSITION
 ================================================== */}
 
@@ -5082,7 +6586,6 @@ export default function RightPanel({
                         <InspectorSection
                             title="Shadow"
                         >
-
                             <StyleSelect
                                 label="Preset"
                                 value={
@@ -5132,7 +6635,21 @@ export default function RightPanel({
                                 }
                             />
 
+                            <ShadowEditor
+                                value={
+                                    getStyleValue(
+                                        "boxShadow"
+                                    )
+                                }
+                                onChange={(value) =>
+                                    updateStyle(
+                                        "boxShadow",
+                                        value
+                                    )
+                                }
+                            />
                         </InspectorSection>
+
 
                         {/* ==================================================
                             OVERFLOW

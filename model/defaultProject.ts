@@ -9,6 +9,8 @@ export const defaultProject: Project = {
 
     assets: {},
 
+    designTokens: {},
+
     pages: {
         "page-home": {
             id: "page-home",

@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import PageManager from "./PageManager";
 import LeftPanel from "./LeftPanel";
 import Canvas from "./Canvas";
 import RightPanel from "./RightPanel";
+import { DesignTokenManager } from "./design-tokens";
 
 import { useEditorStore } from "@/store/editorStore";
 import {
@@ -610,13 +611,13 @@ function renderPreviewNode(
 
     const animationTriggerAttribute =
         hasAnimation &&
-        (animationTrigger === "click" || animationTrigger === "scroll")
+            (animationTrigger === "click" || animationTrigger === "scroll")
             ? ` data-animation-trigger="${animationTrigger}" data-animation-value="${escapeHtml(animation)}"`
             : "";
 
     const focusableAttribute =
         hasAnimation &&
-        animationTrigger === "focus"
+            animationTrigger === "focus"
             ? ' tabindex="0"'
             : "";
 
@@ -1041,6 +1042,9 @@ function openPreview(
 ========================================================= */
 
 export default function Editor() {
+    const [showDesignTokens, setShowDesignTokens] =
+        useState(false);
+
     /* =====================================================
        PROJECT
     ===================================================== */
@@ -1487,6 +1491,31 @@ export default function Editor() {
                                 Import
                             </button>
 
+                            <button
+                                type="button"
+                                onClick={() =>
+                                    setShowDesignTokens(
+                                        (current) => !current
+                                    )
+                                }
+                                title="Open Design Tokens"
+                                className={`
+                                    shrink-0
+                                    rounded-md
+                                    border
+                                    px-3
+                                    py-1.5
+                                    text-sm
+                                    transition
+                                    ${showDesignTokens
+                                        ? "border-blue-200 bg-blue-50 text-blue-700"
+                                        : "hover:bg-gray-50"
+                                    }
+                                `}
+                            >
+                                Design Tokens
+                            </button>
+
                             <div className="mx-1 h-6 w-px shrink-0 bg-gray-200" />
 
                             {/* =================================
@@ -1651,11 +1680,25 @@ export default function Editor() {
                 RIGHT PANEL
             ================================================= */}
 
-            <RightPanel
-                viewport={
-                    viewport
-                }
-            />
+            {showDesignTokens ? (
+                <aside
+                    className="
+                        w-80
+                        shrink-0
+                        overflow-hidden
+                        border-l
+                        bg-white
+                    "
+                >
+                    <DesignTokenManager />
+                </aside>
+            ) : (
+                <RightPanel
+                    viewport={
+                        viewport
+                    }
+                />
+            )}
         </div>
     );
 }

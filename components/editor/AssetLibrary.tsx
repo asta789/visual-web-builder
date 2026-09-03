@@ -16,10 +16,29 @@ export default function AssetLibrary() {
     const addAsset = useEditorStore((state) => state.addAsset);
     const removeAsset = useEditorStore((state) => state.removeAsset);
     const setImageAsset = useEditorStore((state) => state.setImageAsset);
+    const updateNodeStyles = useEditorStore((state) => state.updateNodeStyles);
 
     const selectedNode = selectedNodeId
         ? project.nodes[selectedNodeId]
         : null;
+
+    function applyAsset(asset: ProjectAsset) {
+        if (!selectedNode) {
+            return;
+        }
+
+        // Image elements keep their existing asset workflow.
+        if (selectedNode.type === "image") {
+            setImageAsset(selectedNode.id, asset);
+            return;
+        }
+
+        // Sections/containers/other styled nodes can reuse the same
+        // project asset as a CSS background image.
+        updateNodeStyles(selectedNode.id, {
+            backgroundImage: `url(${asset.source})`,
+        });
+    }
 
     function importImage(event: React.ChangeEvent<HTMLInputElement>) {
         const file = event.target.files?.[0];
@@ -42,17 +61,18 @@ export default function AssetLibrary() {
             };
 
             addAsset(asset);
-            if (selectedNode?.type === "image") {
-                setImageAsset(selectedNode.id, asset);
+            if (selectedNode) {
+                applyAsset(asset);
             }
         };
         reader.readAsDataURL(file);
     }
 
     const assets = Object.values(project.assets);
+    const canUseAsset = !!selectedNode && selectedNode.type !== "page";
 
     return (
-        <section className="border-b p-3">
+        <section id="vwb-asset-library" className="border-b p-3">
             <div className="mb-2 flex items-center justify-between">
                 <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">Assets</span>
                 <button type="button" onClick={() => inputRef.current?.click()} className="text-xs font-medium text-blue-600 hover:text-blue-800">
@@ -72,7 +92,14 @@ export default function AssetLibrary() {
                                 <p className="truncate text-xs font-medium">{asset.name}</p>
                                 <p className="text-[10px] text-gray-500">{asset.type || "image"} · {Math.ceil(asset.size / 1024)} KB</p>
                                 <div className="mt-1 flex gap-2 text-[10px] font-medium">
-                                    <button type="button" disabled={selectedNode?.type !== "image"} onClick={() => selectedNode && setImageAsset(selectedNode.id, asset)} className="text-blue-600 disabled:cursor-not-allowed disabled:text-gray-300">Use</button>
+                                    <button
+                                        type="button"
+                                        disabled={!canUseAsset}
+                                        onClick={() => applyAsset(asset)}
+                                        className="text-blue-600 disabled:cursor-not-allowed disabled:text-gray-300"
+                                    >
+                                        {selectedNode?.type === "image" ? "Use" : "Use as background"}
+                                    </button>
                                     <button type="button" onClick={() => removeAsset(asset.id)} className="text-red-500">Remove</button>
                                 </div>
                             </div>
@@ -82,4 +109,4 @@ export default function AssetLibrary() {
             )}
         </section>
     );
-}
+} 

@@ -1,5 +1,5 @@
-/* =========================================================
-   BREAKPOINTS
+/* ========================================================= 
+   BREAKPOINTS 
 ========================================================= */
 
 export type BreakpointId =
@@ -8,16 +8,16 @@ export type BreakpointId =
    | "mobile";
 
 
-/* =========================================================
-   VISUAL BUILDER LAYOUT MODE
+/* ========================================================= 
+   VISUAL BUILDER LAYOUT MODE 
 ========================================================= */
 
-/**
- * Controls how the user wants elements inside a container
- * to be arranged.
- *
- * These values are user-facing concepts. The renderer/layout
- * engine will translate them into the appropriate CSS behavior.
+/** 
+ * Controls how the user wants elements inside a container 
+ * to be arranged. 
+ * 
+ * These values are user-facing concepts. The renderer/layout 
+ * engine will translate them into the appropriate CSS behavior. 
  */
 export type LayoutMode =
    | "automatic"
@@ -27,8 +27,8 @@ export type LayoutMode =
    | "free";
 
 
-/* =========================================================
-   NODE TYPES
+/* ========================================================= 
+   NODE TYPES 
 ========================================================= */
 
 export type NodeType =
@@ -41,8 +41,8 @@ export type NodeType =
    | "image";
 
 
-/* =========================================================
-   PROJECT ASSETS
+/* ========================================================= 
+   PROJECT ASSETS 
 ========================================================= */
 
 export interface ProjectAsset {
@@ -55,9 +55,30 @@ export interface ProjectAsset {
    height?: number;
 }
 
-
 /* =========================================================
-   ANIMATION
+   DESIGN TOKENS
+========================================================= */
+
+export type DesignTokenType =
+   | "color"
+   | "spacing"
+   | "fontSize"
+   | "fontWeight"
+   | "borderRadius"
+   | "shadow"
+   | "custom";
+
+
+export interface DesignToken {
+   id: string;
+   name: string;
+   type: DesignTokenType;
+   value: string;
+}
+
+
+/* ========================================================= 
+   ANIMATION 
 ========================================================= */
 
 export type AnimationTrigger =
@@ -68,29 +89,40 @@ export type AnimationTrigger =
    | "scroll";
 
 
-/* =========================================================
-   BASE STYLE PROPERTIES
+/* ========================================================= 
+   BASE STYLE PROPERTIES 
 ========================================================= */
 
 export interface BaseStyleProperties {
 
+   /* --------------------------------------------------------- 
+      Grid Container 
+   --------------------------------------------------------- */
+
    gridTemplateColumns?: string;
    gridTemplateRows?: string;
 
+   columnGap?: string;
+   rowGap?: string;
+
    justifyItems?: string;
-   justifyContent?: string;
    alignItems?: string;
+   justifyContent?: string;
    alignContent?: string;
+
+
+   /* --------------------------------------------------------- 
+      Grid Item Placement 
+   --------------------------------------------------------- */
 
    gridColumnStart?: string;
    gridColumnEnd?: string;
    gridRowStart?: string;
    gridRowEnd?: string;
 
-   columnGap?: string;
-   rowGap?: string;
-   /* ---------------------------------------------------------
-      Size
+
+   /* --------------------------------------------------------- 
+      Size 
    --------------------------------------------------------- */
 
    width?: string;
@@ -102,9 +134,11 @@ export interface BaseStyleProperties {
    minHeight?: string;
    maxHeight?: string;
 
+   aspectRatio?: string;
 
-   /* ---------------------------------------------------------
-      Position
+
+   /* --------------------------------------------------------- 
+      Position 
    --------------------------------------------------------- */
 
    position?:
@@ -122,8 +156,8 @@ export interface BaseStyleProperties {
    zIndex?: string;
 
 
-   /* ---------------------------------------------------------
-      Spacing
+   /* --------------------------------------------------------- 
+      Spacing 
    --------------------------------------------------------- */
 
    marginTop?: string;
@@ -137,31 +171,32 @@ export interface BaseStyleProperties {
    paddingLeft?: string;
 
 
-   /* ---------------------------------------------------------
-      Display
+   /* --------------------------------------------------------- 
+      Display 
    --------------------------------------------------------- */
 
    display?: string;
+   visibility?: string;
 
 
-   /* ---------------------------------------------------------
-      Visual Builder Layout
+   /* --------------------------------------------------------- 
+      Visual Builder Layout 
    --------------------------------------------------------- */
 
-   /**
-    * User-friendly layout mode.
-    *
-    * automatic   → builder decides the best responsive layout
-    * horizontal  → children arranged left-to-right
-    * vertical    → children arranged top-to-bottom
-    * grid        → children arranged using rows/columns
-    * free        → children can be positioned freely
+   /** 
+    * User-friendly layout mode. 
+    * 
+    * automatic   → builder decides the best responsive layout 
+    * horizontal  → children arranged left-to-right 
+    * vertical    → children arranged top-to-bottom 
+    * grid        → children arranged using rows/columns 
+    * free        → children can be positioned freely 
     */
    layoutMode?: LayoutMode;
 
 
-   /* ---------------------------------------------------------
-      Flex Container
+   /* --------------------------------------------------------- 
+      Flex Container 
    --------------------------------------------------------- */
 
    flexDirection?: string;
@@ -169,9 +204,8 @@ export interface BaseStyleProperties {
    flexWrap?: string;
 
 
-
-   /* ---------------------------------------------------------
-      Flex Item
+   /* --------------------------------------------------------- 
+      Flex Item 
    --------------------------------------------------------- */
 
    flexGrow?: string;
@@ -181,8 +215,8 @@ export interface BaseStyleProperties {
    order?: string;
 
 
-   /* ---------------------------------------------------------
-      Typography
+   /* --------------------------------------------------------- 
+      Typography 
    --------------------------------------------------------- */
 
    fontFamily?: string;
@@ -196,17 +230,21 @@ export interface BaseStyleProperties {
    textDecoration?: string;
 
 
-   /* ---------------------------------------------------------
-      Colors
+   /* --------------------------------------------------------- 
+      Colors 
    --------------------------------------------------------- */
 
    color?: string;
    backgroundColor?: string;
    backgroundImage?: string;
+   backgroundSize?: string;
+   backgroundPosition?: string;
+   backgroundRepeat?: string;
+   backgroundAttachment?: string;
 
 
-   /* ---------------------------------------------------------
-      Border
+   /* --------------------------------------------------------- 
+      Border 
    --------------------------------------------------------- */
 
    borderRadius?: string;
@@ -214,58 +252,76 @@ export interface BaseStyleProperties {
    borderWidth?: string;
    borderColor?: string;
 
+   borderTopStyle?: string;
+   borderRightStyle?: string;
+   borderBottomStyle?: string;
+   borderLeftStyle?: string;
 
-   /* ---------------------------------------------------------
-      Effects
+   borderTopWidth?: string;
+   borderRightWidth?: string;
+   borderBottomWidth?: string;
+   borderLeftWidth?: string;
+
+   borderTopColor?: string;
+   borderRightColor?: string;
+   borderBottomColor?: string;
+   borderLeftColor?: string;
+
+
+   /* --------------------------------------------------------- 
+      Effects 
    --------------------------------------------------------- */
 
    opacity?: string;
    boxShadow?: string;
    transform?: string;
    transition?: string;
+   filter?: string;
+   backdropFilter?: string;
 
 
-   /* ---------------------------------------------------------
-      Animation
+   /* --------------------------------------------------------- 
+      Animation 
    --------------------------------------------------------- */
 
    animation?: string;
    animationTrigger?: AnimationTrigger;
 
 
-   /* ---------------------------------------------------------
-      Advanced
+   /* --------------------------------------------------------- 
+      Advanced 
    --------------------------------------------------------- */
 
    overflow?: string;
    cursor?: string;
 
 
-   /* ---------------------------------------------------------
-      Image
+   /* --------------------------------------------------------- 
+      Image 
    --------------------------------------------------------- */
 
    objectFit?: string;
+   objectPosition?: string;
 
 
-   /* ---------------------------------------------------------
-      Link
+   /* --------------------------------------------------------- 
+      Link 
    --------------------------------------------------------- */
 
    href?: string;
    target?: string;
 
 
-   /* ---------------------------------------------------------
-      Accessibility
+   /* --------------------------------------------------------- 
+      Accessibility 
    --------------------------------------------------------- */
 
    alt?: string;
 }
 
 
-/* =========================================================
-   RESPONSIVE STYLES
+/* ========================================================= 
+   RESPONSIVE STYLES 
 ========================================================= */
 
 export type ResponsiveStyleOverrides =
@@ -279,8 +335,8 @@ export interface ResponsiveStyles {
 }
 
 
-/* =========================================================
-   STYLE PROPERTIES
+/* ========================================================= 
+   STYLE PROPERTIES 
 ========================================================= */
 
 export interface StyleProperties
@@ -290,8 +346,8 @@ export interface StyleProperties
 }
 
 
-/* =========================================================
-   PROJECT NODE
+/* ========================================================= 
+   PROJECT NODE 
 ========================================================= */
 
 export interface ProjectNode {
@@ -311,8 +367,8 @@ export interface ProjectNode {
 }
 
 
-/* =========================================================
-   PROJECT PAGE
+/* ========================================================= 
+   PROJECT PAGE 
 ========================================================= */
 
 export interface ProjectPage {
@@ -322,8 +378,8 @@ export interface ProjectPage {
 }
 
 
-/* =========================================================
-   PROJECT
+/* ========================================================= 
+   PROJECT 
 ========================================================= */
 
 export interface Project {
@@ -337,4 +393,6 @@ export interface Project {
    pages: Record<string, ProjectPage>;
 
    activePageId: string;
+
+   designTokens: Record<string, DesignToken>;
 }

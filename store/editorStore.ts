@@ -5,6 +5,8 @@ import { defaultProject } from "@/model/defaultProject";
 
 import {
     BreakpointId,
+    DesignToken,
+    DesignTokenType,
     LayoutMode,
     NodeType,
     Project,
@@ -131,6 +133,25 @@ interface EditorState {
     removeAsset: (assetId: string) => void;
 
     replaceProject: (project: Project) => void;
+
+    /* =====================================================
+       DESIGN TOKEN OPERATIONS
+    ===================================================== */
+
+    addDesignToken: (
+        name: string,
+        type: DesignTokenType,
+        value: string
+    ) => void;
+
+    updateDesignToken: (
+        tokenId: string,
+        updates: Partial<DesignToken>
+    ) => void;
+
+    deleteDesignToken: (
+        tokenId: string
+    ) => void;
 
     /* =====================================================
        RESPONSIVE STYLE OPERATIONS
@@ -479,6 +500,31 @@ function createUniqueNodeId(
     while (nodes[id]) {
         id =
             `${prefix}-${Date.now()}-${Math.random()
+                .toString(36)
+                .slice(2, 8)}`;
+    }
+
+    return id;
+}
+
+/* =========================================================
+   UNIQUE DESIGN TOKEN ID
+========================================================= */
+
+function createUniqueDesignTokenId(
+    tokens: Project["designTokens"] | undefined
+): string {
+    const safeTokens =
+        tokens ?? {};
+
+    let id =
+        `token-${Date.now()}-${Math.random()
+            .toString(36)
+            .slice(2, 8)}`;
+
+    while (safeTokens[id]) {
+        id =
+            `token-${Date.now()}-${Math.random()
                 .toString(36)
                 .slice(2, 8)}`;
     }
@@ -1830,13 +1876,6 @@ export const useEditorStore =
                             }
 
                             if (
-                                !existingStyles.gridTemplateRows
-                            ) {
-                                nextStyles.gridTemplateRows =
-                                    "repeat(2, minmax(0, auto))";
-                            }
-
-                            if (
                                 !existingStyles.columnGap
                             ) {
                                 nextStyles.columnGap =
@@ -1849,6 +1888,7 @@ export const useEditorStore =
                                 nextStyles.rowGap =
                                     "20px";
                             }
+
                             break;
 
                         case "free":
@@ -2269,13 +2309,281 @@ export const useEditorStore =
 
             replaceProject: (project) =>
                 set({
-                    project,
+                    project: {
+                        ...project,
+
+                        /*
+                         * Projects created before Design Tokens
+                         * was introduced do not contain this field.
+                         *
+                         * Normalize them at the store boundary so
+                         * every token operation can safely assume
+                         * that designTokens is an object.
+                         */
+                        designTokens:
+                            project.designTokens ?? {},
+                    },
+
                     selectedNodeId: null,
+
                     past: [],
+
                     future: [],
+
                     transactionSnapshot: null,
+
                     transactionActive: false,
+
                     transactionChanged: false,
+                }),
+
+            /* =================================================
+               DESIGN TOKENS
+            ================================================= */
+
+            addDesignToken: (
+                name,
+                type,
+                value
+            ) =>
+                set((state) => {
+                    const trimmedName =
+                        name.trim();
+
+                    const trimmedValue =
+                        value.trim();
+
+                    if (
+                        !trimmedName ||
+                        !trimmedValue
+                    ) {
+                        return state;
+                    }
+
+                    const designTokens =
+                        state.project.designTokens ?? {};
+
+
+
+                    const existingNames =
+                        Object.values(designTokens).map(
+                            (token) =>
+                                token.name.trim().toLowerCase()
+                        );
+
+                    if (
+                        existingNames.includes(
+                            trimmedName.toLowerCase()
+                        )
+                    ) {
+                        console.warn(
+                            "A design token with this name already exists."
+                        );
+
+                        return state;
+                    }
+
+                    const tokenId =
+                        createUniqueDesignTokenId(
+                            designTokens
+                        );
+
+                    const token: DesignToken = {
+                        id: tokenId,
+                        name: trimmedName,
+                        type,
+                        value: trimmedValue,
+                    };
+
+                    const updatedProject:
+                        Project = {
+                        ...state.project,
+
+                        designTokens: {
+                            ...designTokens,
+                            [tokenId]: token,
+                        },
+                    };
+
+                    if (
+                        state.transactionActive
+                    ) {
+                        return {
+                            project:
+                                updatedProject,
+
+                            transactionChanged:
+                                true,
+                        };
+                    }
+
+                    const past =
+                        pushHistory(state);
+
+                    return {
+                        project:
+                            updatedProject,
+
+                        past,
+
+                        future: [],
+                    };
+                }),
+
+            updateDesignToken: (
+                tokenId,
+                updates
+            ) =>
+                set((state) => {
+                    const designTokens =
+                        state.project.designTokens ?? {};
+
+                    const existingToken =
+                        designTokens[
+                        tokenId
+                        ];
+
+                    if (!existingToken) {
+                        return state;
+                    }
+
+                    const nextName =
+                        updates.name !== undefined
+                            ? updates.name.trim()
+                            : existingToken.name;
+
+                    const nextValue =
+                        updates.value !== undefined
+                            ? updates.value.trim()
+                            : existingToken.value;
+
+                    if (
+                        !nextName ||
+                        !nextValue
+                    ) {
+                        return state;
+                    }
+
+                    const duplicateName =
+                        Object.values(
+                            designTokens
+                        ).some(
+                            (token) =>
+                                token.id !== tokenId &&
+                                token.name
+                                    .toLowerCase() ===
+                                nextName.toLowerCase()
+                        );
+
+                    if (duplicateName) {
+                        console.warn(
+                            "A design token with this name already exists."
+                        );
+
+                        return state;
+                    }
+
+                    const updatedToken:
+                        DesignToken = {
+                        ...existingToken,
+
+                        ...updates,
+
+                        name: nextName,
+
+                        value: nextValue,
+                    };
+
+                    const updatedProject:
+                        Project = {
+                        ...state.project,
+
+                        designTokens: {
+                            ...designTokens,
+
+                            [tokenId]:
+                                updatedToken,
+                        },
+                    };
+
+                    if (
+                        state.transactionActive
+                    ) {
+                        return {
+                            project:
+                                updatedProject,
+
+                            transactionChanged:
+                                true,
+                        };
+                    }
+
+                    const past =
+                        pushHistory(state);
+
+                    return {
+                        project:
+                            updatedProject,
+
+                        past,
+
+                        future: [],
+                    };
+                }),
+
+            deleteDesignToken: (
+                tokenId
+            ) =>
+                set((state) => {
+                    const existingDesignTokens =
+                        state.project.designTokens ?? {};
+
+                    if (
+                        !existingDesignTokens[
+                        tokenId
+                        ]
+                    ) {
+                        return state;
+                    }
+
+                    const designTokens = {
+                        ...existingDesignTokens,
+                    };
+
+                    delete designTokens[
+                        tokenId
+                    ];
+
+                    const updatedProject:
+                        Project = {
+                        ...state.project,
+
+                        designTokens,
+                    };
+
+                    if (
+                        state.transactionActive
+                    ) {
+                        return {
+                            project:
+                                updatedProject,
+
+                            transactionChanged:
+                                true,
+                        };
+                    }
+
+                    const past =
+                        pushHistory(state);
+
+                    return {
+                        project:
+                            updatedProject,
+
+                        past,
+
+                        future: [],
+                    };
                 }),
 
             /* =================================================

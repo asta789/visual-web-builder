@@ -39,6 +39,8 @@ interface ResizeState {
     startHeight: number;
 
     scale: number;
+
+    aspectRatio: number | null;
 }
 
 /* =========================================================
@@ -255,6 +257,94 @@ export default function EditorOverlay() {
     ]);
 
     /* =========================================================
+       ASPECT RATIO
+    ========================================================= */
+
+    function getActiveAspectRatio(): number | null {
+        if (!selectedNodeId) {
+            return null;
+        }
+
+        const selectedNode =
+            useEditorStore
+                .getState()
+                .project
+                .nodes[
+            selectedNodeId
+            ];
+
+        if (!selectedNode) {
+            return null;
+        }
+
+        const viewportElement =
+            getViewportElement();
+
+        if (!viewportElement) {
+            return null;
+        }
+
+        const viewportWidth =
+            viewportElement.clientWidth;
+
+        const responsiveStyles =
+            selectedNode.styles
+                ?.responsive;
+
+        /*
+         * EditorOverlay does not receive the current
+         * viewport id directly. Resolve the effective
+         * aspect ratio from the responsive override
+         * currently represented by the viewport width.
+         */
+        const viewportId =
+            viewportWidth <= 767
+                ? "mobile"
+                : viewportWidth <= 1023
+                    ? "tablet"
+                    : "desktop";
+
+        const responsiveAspectRatio =
+            responsiveStyles?.[
+                viewportId
+            ]?.aspectRatio;
+
+        const aspectRatio =
+            responsiveAspectRatio ??
+            selectedNode.styles
+                ?.aspectRatio;
+
+        if (
+            !aspectRatio ||
+            !aspectRatio.trim()
+        ) {
+            return null;
+        }
+
+        const parts =
+            aspectRatio
+                .split("/")
+                .map(
+                    (part) =>
+                        Number(
+                            part.trim()
+                        )
+                );
+
+        if (
+            parts.length !== 2 ||
+            !Number.isFinite(parts[0]) ||
+            !Number.isFinite(parts[1]) ||
+            parts[0] <= 0 ||
+            parts[1] <= 0
+        ) {
+            return null;
+        }
+
+        return parts[0] / parts[1];
+    }
+
+    /* =========================================================
        RESIZE START
     ========================================================= */
 
@@ -309,6 +399,9 @@ export default function EditorOverlay() {
                 rect.height,
 
             scale,
+
+            aspectRatio:
+                getActiveAspectRatio(),
         };
 
         try {
@@ -430,6 +523,69 @@ export default function EditorOverlay() {
             newHeight =
                 state.startHeight -
                 deltaY;
+        }
+
+        /* -----------------------------------------------------
+           ASPECT RATIO
+        ----------------------------------------------------- */
+
+        if (
+            state.aspectRatio &&
+            Number.isFinite(
+                state.aspectRatio
+            ) &&
+            state.aspectRatio > 0
+        ) {
+            /*
+             * Preserve the selected element's starting
+             * aspect ratio while resizing from any corner.
+             *
+             * The dominant pointer movement determines
+             * the new size, then the other dimension is
+             * calculated from the ratio.
+             */
+            const widthChange =
+                Math.abs(
+                    newWidth -
+                    state.startWidth
+                );
+
+            const heightChange =
+                Math.abs(
+                    newHeight -
+                    state.startHeight
+                );
+
+            if (
+                widthChange >=
+                heightChange
+            ) {
+                newHeight =
+                    newWidth /
+                    state.aspectRatio;
+            } else {
+                newWidth =
+                    newHeight *
+                    state.aspectRatio;
+            }
+
+            /*
+             * Keep the minimum size while preserving
+             * the ratio.
+             */
+            if (newWidth < 20) {
+                newWidth = 20;
+                newHeight =
+                    newWidth /
+                    state.aspectRatio;
+            }
+
+            if (newHeight < 20) {
+                newHeight = 20;
+                newWidth =
+                    newHeight *
+                    state.aspectRatio;
+            }
         }
 
         /* -----------------------------------------------------
