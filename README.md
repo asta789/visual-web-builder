@@ -1,4 +1,17 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Visual Web Builder
+
+A local-first visual website builder built with Next.js, React, TypeScript, Tailwind CSS, and Zustand.
+
+## Current capabilities
+
+- Responsive desktop, tablet, and mobile style overrides.
+- Visual node tree, drag/reparent, resize, pages, undo/redo, Grid and Flex layouts.
+- Image asset library with import, reuse, metadata, and removal.
+- Animation presets with load, hover, focus, click, and scroll triggers.
+- Local browser persistence plus JSON project export/import.
+- Preview window with navigation links and runtime animation triggers.
+
+Projects are stored only in the active browser's local storage until exported. Importing a project replaces the current one.
 
 ## Getting Started
 

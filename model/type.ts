@@ -1,11 +1,31 @@
 /* =========================================================
-   BREAKPOINT TYPES
+   BREAKPOINTS
 ========================================================= */
 
 export type BreakpointId =
    | "desktop"
    | "tablet"
    | "mobile";
+
+
+/* =========================================================
+   VISUAL BUILDER LAYOUT MODE
+========================================================= */
+
+/**
+ * Controls how the user wants elements inside a container
+ * to be arranged.
+ *
+ * These values are user-facing concepts. The renderer/layout
+ * engine will translate them into the appropriate CSS behavior.
+ */
+export type LayoutMode =
+   | "automatic"
+   | "horizontal"
+   | "vertical"
+   | "grid"
+   | "free";
+
 
 /* =========================================================
    NODE TYPES
@@ -20,28 +40,24 @@ export type NodeType =
    | "button"
    | "image";
 
+
 /* =========================================================
-   ASSET TYPES
+   PROJECT ASSETS
 ========================================================= */
 
 export interface ProjectAsset {
    id: string;
-
    name: string;
-
    type: string;
-
    size: number;
-
    source: string;
-
    width?: number;
-
    height?: number;
 }
 
+
 /* =========================================================
-   ANIMATION TRIGGER
+   ANIMATION
 ========================================================= */
 
 export type AnimationTrigger =
@@ -51,21 +67,41 @@ export type AnimationTrigger =
    | "focus"
    | "scroll";
 
+
 /* =========================================================
    BASE STYLE PROPERTIES
 ========================================================= */
 
 export interface BaseStyleProperties {
+
+   gridTemplateColumns?: string;
+   gridTemplateRows?: string;
+
+   justifyItems?: string;
+   justifyContent?: string;
+   alignItems?: string;
+   alignContent?: string;
+
+   gridColumnStart?: string;
+   gridColumnEnd?: string;
+   gridRowStart?: string;
+   gridRowEnd?: string;
+
+   columnGap?: string;
+   rowGap?: string;
    /* ---------------------------------------------------------
       Size
    --------------------------------------------------------- */
 
    width?: string;
    height?: string;
+
    minWidth?: string;
    maxWidth?: string;
+
    minHeight?: string;
    maxHeight?: string;
+
 
    /* ---------------------------------------------------------
       Position
@@ -82,10 +118,12 @@ export interface BaseStyleProperties {
    right?: string;
    bottom?: string;
    left?: string;
+
    zIndex?: string;
 
+
    /* ---------------------------------------------------------
-      Margin
+      Spacing
    --------------------------------------------------------- */
 
    marginTop?: string;
@@ -93,14 +131,11 @@ export interface BaseStyleProperties {
    marginBottom?: string;
    marginLeft?: string;
 
-   /* ---------------------------------------------------------
-      Padding
-   --------------------------------------------------------- */
-
    paddingTop?: string;
    paddingRight?: string;
    paddingBottom?: string;
    paddingLeft?: string;
+
 
    /* ---------------------------------------------------------
       Display
@@ -108,16 +143,32 @@ export interface BaseStyleProperties {
 
    display?: string;
 
+
+   /* ---------------------------------------------------------
+      Visual Builder Layout
+   --------------------------------------------------------- */
+
+   /**
+    * User-friendly layout mode.
+    *
+    * automatic   → builder decides the best responsive layout
+    * horizontal  → children arranged left-to-right
+    * vertical    → children arranged top-to-bottom
+    * grid        → children arranged using rows/columns
+    * free        → children can be positioned freely
+    */
+   layoutMode?: LayoutMode;
+
+
    /* ---------------------------------------------------------
       Flex Container
    --------------------------------------------------------- */
 
    flexDirection?: string;
-   justifyContent?: string;
-   alignItems?: string;
    gap?: string;
    flexWrap?: string;
-   alignContent?: string;
+
+
 
    /* ---------------------------------------------------------
       Flex Item
@@ -129,41 +180,30 @@ export interface BaseStyleProperties {
    alignSelf?: string;
    order?: string;
 
+
    /* ---------------------------------------------------------
       Typography
    --------------------------------------------------------- */
 
-   /* Typography */
    fontFamily?: string;
    fontSize?: string;
    fontWeight?: string;
    lineHeight?: string;
    letterSpacing?: string;
+
    textAlign?: string;
    textTransform?: string;
    textDecoration?: string;
+
 
    /* ---------------------------------------------------------
       Colors
    --------------------------------------------------------- */
 
    color?: string;
-
    backgroundColor?: string;
-
-   /*
-    * CSS gradients are represented using background-image.
-    *
-    * Example:
-    *
-    * linear-gradient(90deg, #ff0000, #0000ff)
-    *
-    * or:
-    *
-    * radial-gradient(circle, #ffffff, #000000)
-    */
-
    backgroundImage?: string;
+
 
    /* ---------------------------------------------------------
       Border
@@ -174,6 +214,7 @@ export interface BaseStyleProperties {
    borderWidth?: string;
    borderColor?: string;
 
+
    /* ---------------------------------------------------------
       Effects
    --------------------------------------------------------- */
@@ -182,27 +223,30 @@ export interface BaseStyleProperties {
    boxShadow?: string;
    transform?: string;
    transition?: string;
+
+
+   /* ---------------------------------------------------------
+      Animation
+   --------------------------------------------------------- */
+
    animation?: string;
    animationTrigger?: AnimationTrigger;
 
 
    /* ---------------------------------------------------------
-      Overflow
+      Advanced
    --------------------------------------------------------- */
 
    overflow?: string;
-
-   /* ---------------------------------------------------------
-      Interaction
-   --------------------------------------------------------- */
-
    cursor?: string;
+
 
    /* ---------------------------------------------------------
       Image
    --------------------------------------------------------- */
 
    objectFit?: string;
+
 
    /* ---------------------------------------------------------
       Link
@@ -211,6 +255,7 @@ export interface BaseStyleProperties {
    href?: string;
    target?: string;
 
+
    /* ---------------------------------------------------------
       Accessibility
    --------------------------------------------------------- */
@@ -218,24 +263,21 @@ export interface BaseStyleProperties {
    alt?: string;
 }
 
-/* =========================================================
-   RESPONSIVE STYLE OVERRIDES
-========================================================= */
-
-export type ResponsiveStyleOverrides =
-   Partial<BaseStyleProperties>;
 
 /* =========================================================
    RESPONSIVE STYLES
 ========================================================= */
 
+export type ResponsiveStyleOverrides =
+   Partial<BaseStyleProperties>;
+
+
 export interface ResponsiveStyles {
    desktop?: ResponsiveStyleOverrides;
-
    tablet?: ResponsiveStyleOverrides;
-
    mobile?: ResponsiveStyleOverrides;
 }
+
 
 /* =========================================================
    STYLE PROPERTIES
@@ -243,8 +285,10 @@ export interface ResponsiveStyles {
 
 export interface StyleProperties
    extends BaseStyleProperties {
+
    responsive?: ResponsiveStyles;
 }
+
 
 /* =========================================================
    PROJECT NODE
@@ -252,9 +296,7 @@ export interface StyleProperties
 
 export interface ProjectNode {
    id: string;
-
    type: NodeType;
-
    name: string;
 
    parentId?: string;
@@ -268,17 +310,17 @@ export interface ProjectNode {
    styles?: StyleProperties;
 }
 
+
 /* =========================================================
-   PAGE
+   PROJECT PAGE
 ========================================================= */
 
 export interface ProjectPage {
    id: string;
-
    name: string;
-
    rootNodeId: string;
 }
+
 
 /* =========================================================
    PROJECT
@@ -286,7 +328,6 @@ export interface ProjectPage {
 
 export interface Project {
    id: string;
-
    name: string;
 
    nodes: Record<string, ProjectNode>;

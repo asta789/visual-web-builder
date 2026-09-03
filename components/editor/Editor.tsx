@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 
 import PageManager from "./PageManager";
 import LeftPanel from "./LeftPanel";
@@ -8,6 +8,12 @@ import Canvas from "./Canvas";
 import RightPanel from "./RightPanel";
 
 import { useEditorStore } from "@/store/editorStore";
+import {
+    downloadProject,
+    isProject,
+    loadSavedProject,
+    saveProject,
+} from "@/model/projectPersistence";
 
 import {
     BreakpointId,
@@ -20,7 +26,7 @@ import {
 ========================================================= */
 
 if (typeof window !== "undefined") {
-    (window as any).useEditorStore =
+    (window as Window & { useEditorStore?: typeof useEditorStore }).useEditorStore =
         useEditorStore;
 }
 
@@ -265,14 +271,19 @@ function getSafeUrl(
 ========================================================= */
 
 function getImageSource(
+    project: Project,
     node: ProjectNode
 ): string {
-    if (!node.content) {
+    const sourceValue = node.assetId
+        ? project.assets[node.assetId]?.source
+        : node.content;
+
+    if (!sourceValue) {
         return "";
     }
 
     const source =
-        node.content.trim();
+        sourceValue.trim();
 
     if (
         source.startsWith(
@@ -599,8 +610,8 @@ function renderPreviewNode(
 
     const animationTriggerAttribute =
         hasAnimation &&
-        animationTrigger === "click"
-            ? ` data-animation-trigger="click" data-animation-value="${escapeHtml(animation)}"`
+        (animationTrigger === "click" || animationTrigger === "scroll")
+            ? ` data-animation-trigger="${animationTrigger}" data-animation-value="${escapeHtml(animation)}"`
             : "";
 
     const focusableAttribute =
@@ -698,7 +709,7 @@ function renderPreviewNode(
 
     if (node.type === "image") {
         const source =
-            getImageSource(node);
+            getImageSource(project, node);
 
         if (source) {
             const alt =
@@ -744,7 +755,8 @@ function renderPreviewNode(
     if (
         node.type === "page" ||
         node.type === "section" ||
-        node.type === "container"
+        node.type === "container" ||
+        node.type === "navbar"
     ) {
         const children =
             (node.children ?? [])
@@ -936,6 +948,34 @@ function createPreviewDocument(
                     void element.offsetWidth;
                     element.style.animation = animation;
                 });
+
+                window.addEventListener("DOMContentLoaded", function () {
+                    var targets = document.querySelectorAll(
+                        '[data-animation-trigger="scroll"]'
+                    );
+
+                    if (!("IntersectionObserver" in window)) {
+                        targets.forEach(function (element) {
+                            element.style.animation = element.getAttribute(
+                                "data-animation-value"
+                            ) || "none";
+                        });
+                        return;
+                    }
+
+                    var observer = new IntersectionObserver(function (entries) {
+                        entries.forEach(function (entry) {
+                            if (!entry.isIntersecting) return;
+                            var animation = entry.target.getAttribute(
+                                "data-animation-value"
+                            );
+                            if (animation) entry.target.style.animation = animation;
+                            observer.unobserve(entry.target);
+                        });
+                    }, { threshold: 0.2 });
+
+                    targets.forEach(function (element) { observer.observe(element); });
+                });
             </script>
 
         </head>
@@ -1010,6 +1050,47 @@ export default function Editor() {
             (state) =>
                 state.project
         );
+
+    const replaceProject = useEditorStore((state) => state.replaceProject);
+    const importInputRef = useRef<HTMLInputElement>(null);
+    const shouldSkipInitialSave = useRef(true);
+
+    useEffect(() => {
+        const savedProject = loadSavedProject();
+        if (savedProject) replaceProject(savedProject);
+    }, [replaceProject]);
+
+    useEffect(() => {
+        /*
+         * The first render contains the built-in default project.
+         * Skip writing it so a restored project cannot be overwritten
+         * before Zustand has delivered the replacement state.
+         */
+        if (shouldSkipInitialSave.current) {
+            shouldSkipInitialSave.current = false;
+            return;
+        }
+
+        saveProject(project);
+    }, [project]);
+
+    function importProject(event: React.ChangeEvent<HTMLInputElement>) {
+        const file = event.target.files?.[0];
+        event.target.value = "";
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = () => {
+            try {
+                const imported: unknown = JSON.parse(String(reader.result));
+                if (!isProject(imported)) throw new Error("Invalid project");
+                replaceProject(imported);
+            } catch {
+                window.alert("That file is not a valid Visual Web Builder project.");
+            }
+        };
+        reader.readAsText(file);
+    }
 
     /* =====================================================
        SELECTION
@@ -1395,6 +1476,16 @@ export default function Editor() {
                             {/* =================================
                                 SEPARATOR
                             ================================= */}
+
+                            <div className="mx-1 h-6 w-px shrink-0 bg-gray-200" />
+
+                            <input ref={importInputRef} type="file" accept="application/json,.json" onChange={importProject} className="hidden" />
+                            <button type="button" onClick={() => downloadProject(project)} title="Download project JSON" className="shrink-0 rounded-md border px-3 py-1.5 text-sm transition hover:bg-gray-50">
+                                Export
+                            </button>
+                            <button type="button" onClick={() => importInputRef.current?.click()} title="Open a saved project" className="shrink-0 rounded-md border px-3 py-1.5 text-sm transition hover:bg-gray-50">
+                                Import
+                            </button>
 
                             <div className="mx-1 h-6 w-px shrink-0 bg-gray-200" />
 

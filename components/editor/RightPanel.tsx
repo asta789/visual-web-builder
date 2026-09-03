@@ -1,4 +1,3 @@
-
 "use client";
 
 import {
@@ -9,6 +8,8 @@ import {
 
 import type {
     BreakpointId,
+    LayoutMode,
+    ProjectAsset,
 } from "@/model/type";
 
 import { useEditorStore } from "@/store/editorStore";
@@ -808,6 +809,195 @@ function GradientBuilder({
                 </div>
             </div>
 
+        </div>
+    );
+}
+/* =========================================================
+   GRID CONTROLS
+========================================================= */
+
+interface GridControlsProps {
+    columns: number;
+    rows: string;
+    columnGap: number;
+    rowGap: number;
+
+    justifyItems: string;
+    justifyContent: string;
+    alignItems: string;
+    alignContent: string;
+
+    onColumnsChange: (value: number) => void;
+    onRowsChange: (value: string) => void;
+    onColumnGapChange: (value: number) => void;
+    onRowGapChange: (value: number) => void;
+
+    onJustifyItemsChange: (value: string) => void;
+    onJustifyContentChange: (value: string) => void;
+    onAlignItemsChange: (value: string) => void;
+    onAlignContentChange: (value: string) => void;
+}
+
+
+function GridControls({
+    columns,
+    rows,
+    columnGap,
+    rowGap,
+    justifyItems,
+    justifyContent,
+    alignItems,
+    alignContent,
+    onColumnsChange,
+    onRowsChange,
+    onColumnGapChange,
+    onRowGapChange,
+    onJustifyItemsChange,
+    onJustifyContentChange,
+    onAlignItemsChange,
+    onAlignContentChange,
+}: GridControlsProps) {
+    const alignmentOptions = {
+        justifyItems: [
+            { label: "Default", value: "" },
+            { label: "Start", value: "start" },
+            { label: "Center", value: "center" },
+            { label: "End", value: "end" },
+            { label: "Stretch", value: "stretch" },
+        ],
+        alignItems: [
+            { label: "Default", value: "" },
+            { label: "Start", value: "start" },
+            { label: "Center", value: "center" },
+            { label: "End", value: "end" },
+            { label: "Stretch", value: "stretch" },
+            { label: "Baseline", value: "baseline" },
+        ],
+        justifyContent: [
+            { label: "Default", value: "" },
+            { label: "Start", value: "start" },
+            { label: "Center", value: "center" },
+            { label: "End", value: "end" },
+            { label: "Space Between", value: "space-between" },
+            { label: "Space Around", value: "space-around" },
+            { label: "Space Evenly", value: "space-evenly" },
+        ],
+        alignContent: [
+            { label: "Default", value: "" },
+            { label: "Start", value: "start" },
+            { label: "Center", value: "center" },
+            { label: "End", value: "end" },
+            { label: "Stretch", value: "stretch" },
+            { label: "Space Between", value: "space-between" },
+            { label: "Space Around", value: "space-around" },
+            { label: "Space Evenly", value: "space-evenly" },
+        ],
+    };
+
+    return (
+        <div className="space-y-4">
+            <div>
+                <label className="mb-2 block text-xs font-medium text-gray-500">
+                    Columns
+                </label>
+                <div className="grid grid-cols-6 gap-1.5">
+                    {[1, 2, 3, 4, 5, 6].map((value) => (
+                        <button
+                            key={value}
+                            type="button"
+                            onClick={() => onColumnsChange(value)}
+                            className={`rounded-md border px-2 py-1.5 text-xs font-medium transition ${columns === value
+                                ? "border-blue-500 bg-blue-50 text-blue-600"
+                                : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50"
+                                }`}
+                        >
+                            {value}
+                        </button>
+                    ))}
+                </div>
+            </div>
+
+            <StyleInput
+                label="Rows"
+                value={rows}
+                placeholder="repeat(2, minmax(0, auto))"
+                onChange={onRowsChange}
+            />
+
+            <div className="grid grid-cols-2 gap-3">
+                <div>
+                    <label className="mb-1.5 block text-xs font-medium text-gray-500">
+                        Column Gap
+                    </label>
+                    <input
+                        type="range"
+                        min="0"
+                        max="80"
+                        step="1"
+                        value={columnGap}
+                        onChange={(event) =>
+                            onColumnGapChange(Number(event.target.value))
+                        }
+                        className="w-full"
+                    />
+                    <div className="mt-1 text-[11px] text-gray-400">
+                        {columnGap}px
+                    </div>
+                </div>
+
+                <div>
+                    <label className="mb-1.5 block text-xs font-medium text-gray-500">
+                        Row Gap
+                    </label>
+                    <input
+                        type="range"
+                        min="0"
+                        max="80"
+                        step="1"
+                        value={rowGap}
+                        onChange={(event) =>
+                            onRowGapChange(Number(event.target.value))
+                        }
+                        className="w-full"
+                    />
+                    <div className="mt-1 text-[11px] text-gray-400">
+                        {rowGap}px
+                    </div>
+                </div>
+            </div>
+
+            <div className="rounded-lg border bg-gray-50 p-3">
+                <div className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                    Grid Alignment
+                </div>
+
+                <div className="space-y-3">
+                    <StyleSelect
+                        label="Justify Items"
+                        value={justifyItems}
+                        options={alignmentOptions.justifyItems}
+                        onChange={onJustifyItemsChange}
+                    />
+                    <StyleSelect
+                        label="Align Items"
+                        value={alignItems}
+                        options={alignmentOptions.alignItems}
+                        onChange={onAlignItemsChange}
+                    />
+                    <StyleSelect
+                        label="Justify Content"
+                        value={justifyContent}
+                        options={alignmentOptions.justifyContent}
+                        onChange={onJustifyContentChange}
+                    />
+                    <StyleSelect
+                        label="Align Content"
+                        value={alignContent}
+                        options={alignmentOptions.alignContent}
+                        onChange={onAlignContentChange}
+                    />
+                </div>
+            </div>
         </div>
     );
 }
@@ -1721,6 +1911,10 @@ function AnimationEditor({
                                 label: "On Focus",
                                 value: "focus",
                             },
+                            {
+                                label: "On Scroll Into View",
+                                value: "scroll",
+                            },
                         ]}
                         onChange={onTriggerChange}
                     />
@@ -1992,6 +2186,18 @@ export default function RightPanel({
                 state.updateNode
         );
 
+    const setLayoutMode =
+        useEditorStore(
+            (state) =>
+                state.setLayoutMode
+        );
+
+    const setImageAsset =
+        useEditorStore(
+            (state) =>
+                state.setImageAsset
+        );
+
     const updateResponsiveNodeStyles =
         useEditorStore(
             (state) =>
@@ -2007,6 +2213,11 @@ export default function RightPanel({
             selectedNodeId
             ]
             : null;
+
+    const imageSource =
+        node?.assetId
+            ? project.assets[node.assetId]?.source
+            : node?.content;
 
     /* =====================================================
        RESPONSIVE STYLE VALUE
@@ -2179,12 +2390,15 @@ export default function RightPanel({
                 return;
             }
 
-            updateNode(
-                node.id,
-                {
-                    content: result,
-                }
-            );
+            const asset: ProjectAsset = {
+                id: `asset-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+                name: file.name,
+                type: file.type,
+                size: file.size,
+                source: result,
+            };
+
+            setImageAsset(node.id, asset);
         };
 
         reader.onerror = () => {
@@ -2211,6 +2425,7 @@ export default function RightPanel({
             node.id,
             {
                 content: "",
+                assetId: undefined,
             }
         );
     }
@@ -2246,6 +2461,21 @@ export default function RightPanel({
                     ?.display
             )
             : undefined;
+
+    const parentLayoutMode =
+        parentNode
+            ? (
+                parentNode.styles
+                    ?.responsive?.[
+                    viewport
+                ]?.layoutMode ??
+                parentNode.styles
+                    ?.layoutMode
+            )
+            : undefined;
+
+    const isGridItem =
+        parentLayoutMode === "grid";
 
     const isFlexContainer =
         currentDisplay ===
@@ -2539,7 +2769,7 @@ export default function RightPanel({
                                     </button>
                                 </div>
 
-                                {node.content && (
+                                {imageSource && (
                                     <div className="
                                         overflow-hidden
                                         rounded-md
@@ -2548,7 +2778,7 @@ export default function RightPanel({
                                     ">
                                         <img
                                             src={
-                                                node.content
+                                                imageSource
                                             }
                                             alt={
                                                 node.styles
@@ -2575,7 +2805,7 @@ export default function RightPanel({
                                     }
                                 />
 
-                                {node.content && (
+                                {imageSource && (
                                     <button
                                         type="button"
                                         onClick={
@@ -2723,6 +2953,316 @@ export default function RightPanel({
 
                             </InspectorSection>
                         )}
+
+                        {/* ==================================================
+                            LAYOUT & PLACEMENT
+                        ================================================== */}
+
+                        {(node.type === "page" ||
+                            node.type === "section" ||
+                            node.type === "container" ||
+                            node.type === "navbar") && (
+                                <InspectorSection
+                                    title="Layout & Placement"
+                                >
+                                    <div className="space-y-3">
+                                        <p className="text-xs text-gray-500">
+                                            How do you want to arrange this section?
+                                        </p>
+
+                                        {[
+                                            {
+                                                mode: "automatic" as LayoutMode,
+                                                title: "Automatic",
+                                                description:
+                                                    "Let the builder arrange items naturally and responsively.",
+                                            },
+                                            {
+                                                mode: "horizontal" as LayoutMode,
+                                                title: "Horizontal",
+                                                description:
+                                                    "Place items side by side.",
+                                            },
+                                            {
+                                                mode: "vertical" as LayoutMode,
+                                                title: "Vertical",
+                                                description:
+                                                    "Stack items from top to bottom.",
+                                            },
+                                            {
+                                                mode: "grid" as LayoutMode,
+                                                title: "Grid",
+                                                description:
+                                                    "Arrange items in rows and columns.",
+                                            },
+                                            {
+                                                mode: "free" as LayoutMode,
+                                                title: "Free Position",
+                                                description:
+                                                    "Place and overlap items anywhere.",
+                                            },
+                                        ].map((option) => {
+                                            const activeMode =
+                                                getStyleValue("layoutMode") ||
+                                                "automatic";
+
+                                            const active =
+                                                activeMode === option.mode;
+
+                                            return (
+                                                <button
+                                                    key={option.mode}
+                                                    type="button"
+                                                    onClick={() =>
+                                                        setLayoutMode(
+                                                            node.id,
+                                                            option.mode
+                                                        )
+                                                    }
+                                                    className={`
+                                                    w-full
+                                                    rounded-lg
+                                                    border
+                                                    p-3
+                                                    text-left
+                                                    transition
+                                                    ${active
+                                                            ? "border-blue-500 bg-blue-50 ring-1 ring-blue-500"
+                                                            : "border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50"
+                                                        }
+                                                `}
+                                                >
+                                                    <div className="flex items-center justify-between gap-3">
+                                                        <span className="text-sm font-semibold text-gray-800">
+                                                            {option.title}
+                                                        </span>
+
+                                                        {active && (
+                                                            <span className="text-xs font-medium text-blue-600">
+                                                                Active
+                                                            </span>
+                                                        )}
+                                                    </div>
+
+                                                    <p className="mt-1 text-xs leading-5 text-gray-500">
+                                                        {option.description}
+                                                    </p>
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </InspectorSection>
+                            )}
+
+                        {/* ==================================================
+    GRID CONTROLS
+================================================== */}
+
+                        {(node.type === "page" ||
+                            node.type === "section" ||
+                            node.type === "container" ||
+                            node.type === "navbar") &&
+                            getStyleValue("layoutMode") === "grid" && (
+                                <InspectorSection title="Grid">
+                                    <GridControls
+                                        columns={(() => {
+                                            const value =
+                                                getStyleValue("gridTemplateColumns");
+                                            const match =
+                                                value?.match(/repeat\(\s*(\d+)/);
+                                            return match ? Number(match[1]) : 3;
+                                        })()}
+                                        rows={
+                                            getStyleValue("gridTemplateRows") ||
+                                            "repeat(2, minmax(0, auto))"
+                                        }
+                                        columnGap={
+                                            parseInt(
+                                                getStyleValue("columnGap") || "20",
+                                                10
+                                            ) || 0
+                                        }
+                                        rowGap={
+                                            parseInt(
+                                                getStyleValue("rowGap") || "20",
+                                                10
+                                            ) || 0
+                                        }
+                                        justifyItems={
+                                            getStyleValue("justifyItems") || ""
+                                        }
+                                        justifyContent={
+                                            getStyleValue("justifyContent") || ""
+                                        }
+                                        alignItems={
+                                            getStyleValue("alignItems") || ""
+                                        }
+                                        alignContent={
+                                            getStyleValue("alignContent") || ""
+                                        }
+                                        onColumnsChange={(value) =>
+                                            updateStyle(
+                                                "gridTemplateColumns",
+                                                `repeat(${value}, minmax(0, 1fr))`
+                                            )
+                                        }
+                                        onRowsChange={(value) =>
+                                            updateStyle(
+                                                "gridTemplateRows",
+                                                value
+                                            )
+                                        }
+                                        onColumnGapChange={(value) =>
+                                            updateStyle(
+                                                "columnGap",
+                                                `${value}px`
+                                            )
+                                        }
+                                        onRowGapChange={(value) =>
+                                            updateStyle(
+                                                "rowGap",
+                                                `${value}px`
+                                            )
+                                        }
+                                        onJustifyItemsChange={(value) =>
+                                            updateStyle(
+                                                "justifyItems",
+                                                value
+                                            )
+                                        }
+                                        onJustifyContentChange={(value) =>
+                                            updateStyle(
+                                                "justifyContent",
+                                                value
+                                            )
+                                        }
+                                        onAlignItemsChange={(value) =>
+                                            updateStyle(
+                                                "alignItems",
+                                                value
+                                            )
+                                        }
+                                        onAlignContentChange={(value) =>
+                                            updateStyle(
+                                                "alignContent",
+                                                value
+                                            )
+                                        }
+                                    />
+                                </InspectorSection>
+                            )}
+
+                        {/* ==================================================
+                            GRID ITEM PLACEMENT
+                        ================================================== */}
+
+                        {node && isGridItem && (
+                            <InspectorSection title="Grid Item">
+                                <div className="grid grid-cols-2 gap-3">
+                                    <StyleInput
+                                        label="Column Start"
+                                        value={getStyleValue("gridColumnStart")}
+                                        placeholder="auto"
+                                        onChange={(value) =>
+                                            updateStyle(
+                                                "gridColumnStart",
+                                                value
+                                            )
+                                        }
+                                    />
+
+                                    <StyleInput
+                                        label="Column End"
+                                        value={getStyleValue("gridColumnEnd")}
+                                        placeholder="auto"
+                                        onChange={(value) =>
+                                            updateStyle(
+                                                "gridColumnEnd",
+                                                value
+                                            )
+                                        }
+                                    />
+
+                                    <StyleInput
+                                        label="Row Start"
+                                        value={getStyleValue("gridRowStart")}
+                                        placeholder="auto"
+                                        onChange={(value) =>
+                                            updateStyle(
+                                                "gridRowStart",
+                                                value
+                                            )
+                                        }
+                                    />
+
+                                    <StyleInput
+                                        label="Row End"
+                                        value={getStyleValue("gridRowEnd")}
+                                        placeholder="auto"
+                                        onChange={(value) =>
+                                            updateStyle(
+                                                "gridRowEnd",
+                                                value
+                                            )
+                                        }
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="mb-2 block text-xs font-medium text-gray-500">
+                                        Quick Span
+                                    </label>
+                                    <div className="grid grid-cols-3 gap-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                updateStyle("gridColumnStart", "");
+                                                updateStyle("gridColumnEnd", "");
+                                            }}
+                                            className="rounded-md border bg-white px-2 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50"
+                                        >
+                                            Auto
+                                        </button>
+
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                updateStyle("gridColumnStart", "span 2");
+                                                updateStyle("gridColumnEnd", "");
+                                            }}
+                                            className="rounded-md border bg-white px-2 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50"
+                                        >
+                                            Span 2
+                                        </button>
+
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                updateStyle("gridColumnStart", "span 3");
+                                                updateStyle("gridColumnEnd", "");
+                                            }}
+                                            className="rounded-md border bg-white px-2 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50"
+                                        >
+                                            Span 3
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        updateStyle("gridColumnStart", "");
+                                        updateStyle("gridColumnEnd", "");
+                                        updateStyle("gridRowStart", "");
+                                        updateStyle("gridRowEnd", "");
+                                    }}
+                                    className="w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-xs font-medium text-gray-600 hover:bg-gray-50"
+                                >
+                                    Reset Grid Placement
+                                </button>
+                            </InspectorSection>
+                        )}
+
 
                         {/* ==================================================
                             LAYOUT

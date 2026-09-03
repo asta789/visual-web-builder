@@ -5,6 +5,7 @@ import { defaultProject } from "@/model/defaultProject";
 
 import {
     BreakpointId,
+    LayoutMode,
     NodeType,
     Project,
     ProjectAsset,
@@ -26,17 +27,12 @@ interface EditorSnapshot {
 /* =========================================================
    EDITOR STATE
 ========================================================= */
-
 interface EditorState {
     project: Project;
 
     selectedNodeId:
     | string
     | null;
-
-    /* =====================================================
-       ACTIVE RESPONSIVE BREAKPOINT
-    ===================================================== */
 
     activeBreakpointId: BreakpointId;
 
@@ -116,6 +112,11 @@ interface EditorState {
         styles: Record<string, string>
     ) => void;
 
+    setLayoutMode: (
+        nodeId: string,
+        mode: LayoutMode
+    ) => void;
+
     /* =====================================================
        IMAGE ASSET
     ===================================================== */
@@ -124,6 +125,12 @@ interface EditorState {
         nodeId: string,
         asset: ProjectAsset
     ) => void;
+
+    addAsset: (asset: ProjectAsset) => void;
+
+    removeAsset: (assetId: string) => void;
+
+    replaceProject: (project: Project) => void;
 
     /* =====================================================
        RESPONSIVE STYLE OPERATIONS
@@ -286,23 +293,16 @@ function createNode(
                 children: [],
 
                 styles: {
-                    width: "100%",
-                    minHeight: "64px",
-
                     display: "flex",
+                    flexDirection: "row",
+                    justifyContent: "space-between",
                     alignItems: "center",
-
-                    paddingTop: "12px",
+                    gap: "16px",
+                    paddingTop: "16px",
                     paddingRight: "24px",
-                    paddingBottom: "12px",
+                    paddingBottom: "16px",
                     paddingLeft: "24px",
-
-                    backgroundColor:
-                        "#ffffff",
-
-                    borderWidth: "1px",
-                    borderStyle: "solid",
-                    borderColor: "#e5e7eb",
+                    backgroundColor: "#ffffff",
                 },
             };
 
@@ -544,10 +544,20 @@ export const useEditorStore =
             selectedNodeId:
                 null,
 
-            activeBreakpointId:
-                "desktop",
+            activeBreakpointId: "desktop",
+
+            setActiveBreakpoint: (
+                breakpointId: BreakpointId
+            ) =>
+                set({
+                    activeBreakpointId:
+                        breakpointId,
+                }),
 
             past: [],
+
+
+
 
             future: [],
 
@@ -570,37 +580,6 @@ export const useEditorStore =
                 set({
                     selectedNodeId:
                         nodeId,
-                }),
-
-            /* =================================================
-               ACTIVE BREAKPOINT
-            ================================================= */
-
-            setActiveBreakpoint: (
-                breakpointId
-            ) =>
-                set((state) => {
-
-                    if (
-                        state.activeBreakpointId ===
-                        breakpointId
-                    ) {
-                        return state;
-                    }
-
-                    /*
-                     * Active breakpoint is editor-only state.
-                     *
-                     * It intentionally does not:
-                     * - modify the Project Model
-                     * - create an undo history entry
-                     * - modify redo history
-                     * - modify transaction state
-                     */
-                    return {
-                        activeBreakpointId:
-                            breakpointId,
-                    };
                 }),
 
             /* =================================================
@@ -1755,6 +1734,418 @@ export const useEditorStore =
                     };
                 }),
 
+            /* =========================================================
+   SET LAYOUT MODE
+========================================================= */
+
+            setLayoutMode: (
+                nodeId,
+                mode
+            ) =>
+                set((state) => {
+                    const existingNode =
+                        state.project.nodes[nodeId];
+
+                    if (!existingNode) {
+                        return state;
+                    }
+
+                    const existingStyles =
+                        existingNode.styles ?? {};
+
+                    const previousMode =
+                        existingStyles.layoutMode ??
+                        "automatic";
+
+                    const nextStyles = {
+                        ...existingStyles,
+                    };
+
+                    /* -------------------------------------------------
+                       STRUCTURAL LAYOUT SETTINGS
+                    ------------------------------------------------- */
+
+                    switch (mode) {
+                        case "automatic":
+                            nextStyles.layoutMode =
+                                "automatic";
+
+                            nextStyles.display =
+                                "flex";
+
+                            nextStyles.flexDirection =
+                                "column";
+
+                            break;
+
+                        case "horizontal":
+                            nextStyles.layoutMode =
+                                "horizontal";
+
+                            nextStyles.display =
+                                "flex";
+
+                            nextStyles.flexDirection =
+                                "row";
+
+                            break;
+
+                        case "vertical":
+                            nextStyles.layoutMode =
+                                "vertical";
+
+                            nextStyles.display =
+                                "flex";
+
+                            nextStyles.flexDirection =
+                                "column";
+
+                            break;
+
+                        case "grid":
+                            /*
+                             * Grid layout.
+                             *
+                             * IMPORTANT:
+                             * Grid children must remain in normal
+                             * CSS Grid flow.
+                             *
+                             * Therefore any stale Free Position
+                             * coordinates are cleaned below.
+                             */
+                            nextStyles.layoutMode =
+                                "grid";
+
+                            nextStyles.display =
+                                "grid";
+
+                            /*
+                             * Preserve existing Grid settings.
+                             */
+                            if (
+                                !existingStyles.gridTemplateColumns
+                            ) {
+                                nextStyles.gridTemplateColumns =
+                                    "repeat(3, minmax(0, 1fr))";
+                            }
+
+                            if (
+                                !existingStyles.gridTemplateRows
+                            ) {
+                                nextStyles.gridTemplateRows =
+                                    "repeat(2, minmax(0, auto))";
+                            }
+
+                            if (
+                                !existingStyles.columnGap
+                            ) {
+                                nextStyles.columnGap =
+                                    "20px";
+                            }
+
+                            if (
+                                !existingStyles.rowGap
+                            ) {
+                                nextStyles.rowGap =
+                                    "20px";
+                            }
+                            break;
+
+                        case "free":
+                            /*
+                             * Free Position makes the parent the
+                             * coordinate system for absolutely
+                             * positioned children.
+                             */
+                            nextStyles.layoutMode =
+                                "free";
+
+                            nextStyles.position =
+                                "relative";
+
+                            break;
+                    }
+
+                    /* -------------------------------------------------
+                       COPY NODE MAP
+                    ------------------------------------------------- */
+
+                    const nextNodes = {
+                        ...state.project.nodes,
+
+                        [nodeId]: {
+                            ...existingNode,
+
+                            styles:
+                                nextStyles,
+                        },
+                    };
+
+                    /* -------------------------------------------------
+                       GRID CLEANUP
+                    -------------------------------------------------
+            
+                       Whenever a container enters Grid mode, its
+                       direct children must return to normal Grid flow.
+            
+                       This is intentionally NOT limited to:
+            
+                           previousMode === "free"
+            
+                       because older drag behavior may already have
+                       converted children to absolute positioning
+                       while the parent was in another layout mode.
+            
+                       We therefore clean stale positioning whenever
+                       Grid becomes the active mode.
+                    ------------------------------------------------- */
+
+                    const childrenNeedGridCleanup =
+                        mode === "grid" &&
+                        (existingNode.children ?? []).some(
+                            (childId) => {
+                                const child =
+                                    state.project.nodes[
+                                    childId
+                                    ];
+
+                                if (!child) {
+                                    return false;
+                                }
+
+                                const childStyles =
+                                    child.styles ?? {};
+
+                                return (
+                                    childStyles.position ===
+                                    "absolute" ||
+                                    !!childStyles.top ||
+                                    !!childStyles.right ||
+                                    !!childStyles.bottom ||
+                                    !!childStyles.left
+                                );
+                            }
+                        );
+
+                    if (childrenNeedGridCleanup) {
+                        for (
+                            const childId of
+                            existingNode.children ?? []
+                        ) {
+                            const child =
+                                nextNodes[childId];
+
+                            if (!child) {
+                                continue;
+                            }
+
+                            const childStyles =
+                                child.styles ?? {};
+
+                            /*
+                             * Only remove positioning properties
+                             * generated by Free Position / old drag
+                             * behavior.
+                             *
+                             * We intentionally preserve all other
+                             * child styles.
+                             */
+                            const cleanedStyles = {
+                                ...childStyles,
+                            };
+
+                            delete cleanedStyles.position;
+                            delete cleanedStyles.top;
+                            delete cleanedStyles.right;
+                            delete cleanedStyles.bottom;
+                            delete cleanedStyles.left;
+
+                            nextNodes[childId] = {
+                                ...child,
+
+                                styles:
+                                    cleanedStyles,
+                            };
+                        }
+                    }
+
+                    /* -------------------------------------------------
+                       LEAVING FREE POSITION
+                    -------------------------------------------------
+            
+                       Keep the existing cleanup behavior for the
+                       other flow layouts.
+                    ------------------------------------------------- */
+
+                    const childrenNeedFlowCleanup =
+                        previousMode === "free" &&
+                        mode !== "free" &&
+                        mode !== "grid" &&
+                        (existingNode.children ?? []).some(
+                            (childId) => {
+                                const child =
+                                    state.project.nodes[
+                                    childId
+                                    ];
+
+                                if (!child) {
+                                    return false;
+                                }
+
+                                const childStyles =
+                                    child.styles ?? {};
+
+                                return (
+                                    childStyles.position ===
+                                    "absolute" ||
+                                    !!childStyles.top ||
+                                    !!childStyles.right ||
+                                    !!childStyles.bottom ||
+                                    !!childStyles.left
+                                );
+                            }
+                        );
+
+                    if (childrenNeedFlowCleanup) {
+                        for (
+                            const childId of
+                            existingNode.children ?? []
+                        ) {
+                            const child =
+                                nextNodes[childId];
+
+                            if (!child) {
+                                continue;
+                            }
+
+                            const childStyles =
+                                child.styles ?? {};
+
+                            const cleanedStyles = {
+                                ...childStyles,
+                            };
+
+                            delete cleanedStyles.position;
+                            delete cleanedStyles.top;
+                            delete cleanedStyles.right;
+                            delete cleanedStyles.bottom;
+                            delete cleanedStyles.left;
+
+                            nextNodes[childId] = {
+                                ...child,
+
+                                styles:
+                                    cleanedStyles,
+                            };
+                        }
+                    }
+
+                    /* -------------------------------------------------
+                       DETERMINE WHETHER ANYTHING ACTUALLY CHANGED
+                    ------------------------------------------------- */
+
+                    const relevantMatches =
+                        mode === "automatic"
+                            ? existingStyles.layoutMode ===
+                            "automatic" &&
+                            existingStyles.display ===
+                            "flex" &&
+                            existingStyles.flexDirection ===
+                            "column"
+
+                            : mode === "horizontal"
+                                ? existingStyles.layoutMode ===
+                                "horizontal" &&
+                                existingStyles.display ===
+                                "flex" &&
+                                existingStyles.flexDirection ===
+                                "row"
+
+                                : mode === "vertical"
+                                    ? existingStyles.layoutMode ===
+                                    "vertical" &&
+                                    existingStyles.display ===
+                                    "flex" &&
+                                    existingStyles.flexDirection ===
+                                    "column"
+
+                                    : mode === "free"
+                                        ? existingStyles.layoutMode ===
+                                        "free" &&
+                                        existingStyles.position ===
+                                        "relative"
+
+                                        : existingStyles.layoutMode ===
+                                        "grid" &&
+                                        existingStyles.display ===
+                                        "grid" &&
+                                        !!existingStyles
+                                            .gridTemplateColumns &&
+                                        !!existingStyles
+                                            .columnGap &&
+                                        !!existingStyles
+                                            .rowGap;
+
+                    /*
+                     * If the structural settings are already correct
+                     * and no child cleanup is necessary, avoid a
+                     * useless history entry.
+                     */
+                    const childrenNeedCleanup =
+                        childrenNeedGridCleanup ||
+                        childrenNeedFlowCleanup;
+
+                    if (
+                        relevantMatches &&
+                        !childrenNeedCleanup
+                    ) {
+                        return state;
+                    }
+
+                    /* -------------------------------------------------
+                       UPDATED PROJECT
+                    ------------------------------------------------- */
+
+                    const updatedProject: Project = {
+                        ...state.project,
+
+                        nodes:
+                            nextNodes,
+                    };
+
+                    /* -------------------------------------------------
+                       HISTORY TRANSACTION
+                    ------------------------------------------------- */
+
+                    if (
+                        state.transactionActive
+                    ) {
+                        return {
+                            project:
+                                updatedProject,
+
+                            transactionChanged:
+                                true,
+                        };
+                    }
+
+                    /* -------------------------------------------------
+                       NORMAL HISTORY OPERATION
+                    ------------------------------------------------- */
+
+                    const past =
+                        pushHistory(state);
+
+                    return {
+                        project:
+                            updatedProject,
+
+                        past,
+
+                        future: [],
+                    };
+                }),
+
             /* =================================================
                SET IMAGE ASSET
             ================================================= */
@@ -1836,6 +2227,57 @@ export const useEditorStore =
                     };
                 }),
 
+            addAsset: (asset) =>
+                set((state) => ({
+                    project: {
+                        ...state.project,
+                        assets: {
+                            ...state.project.assets,
+                            [asset.id]: asset,
+                        },
+                    },
+                })),
+
+            removeAsset: (assetId) =>
+                set((state) => {
+                    if (!state.project.assets[assetId]) {
+                        return state;
+                    }
+
+                    const assets = { ...state.project.assets };
+                    delete assets[assetId];
+
+                    const nodes = Object.fromEntries(
+                        Object.entries(state.project.nodes).map(
+                            ([nodeId, node]) => [
+                                nodeId,
+                                node.assetId === assetId
+                                    ? { ...node, assetId: undefined }
+                                    : node,
+                            ]
+                        )
+                    );
+
+                    return {
+                        project: {
+                            ...state.project,
+                            assets,
+                            nodes,
+                        },
+                    };
+                }),
+
+            replaceProject: (project) =>
+                set({
+                    project,
+                    selectedNodeId: null,
+                    past: [],
+                    future: [],
+                    transactionSnapshot: null,
+                    transactionActive: false,
+                    transactionChanged: false,
+                }),
+
             /* =================================================
                UPDATE RESPONSIVE NODE STYLES
             ================================================= */
@@ -1897,8 +2339,7 @@ export const useEditorStore =
                         };
 
                         const updatedProject:
-                            Project =
-                        {
+                            Project = {
                             ...state.project,
 
                             nodes: {

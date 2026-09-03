@@ -4,6 +4,7 @@ import { NodeType } from "@/model/type";
 import { useEditorStore } from "@/store/editorStore";
 
 import LayersPanel from "./LayersPanel";
+import AssetLibrary from "./AssetLibrary";
 
 const components: {
     type: NodeType;
@@ -29,6 +30,10 @@ const components: {
             type: "button",
             label: "Button",
         },
+        {
+            type: "navbar",
+            label: "Navbar",
+        },
     ];
 
 export default function LeftPanel() {
@@ -51,6 +56,8 @@ export default function LeftPanel() {
                     Click to add
                 </p>
             </div>
+
+            <AssetLibrary />
 
             {/* ==================================================
                 COMPONENTS

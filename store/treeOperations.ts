@@ -50,7 +50,8 @@ function canContainChildren(
     return (
         node.type === "page" ||
         node.type === "section" ||
-        node.type === "container"
+        node.type === "container" ||
+        node.type === "navbar"
     );
 }
 

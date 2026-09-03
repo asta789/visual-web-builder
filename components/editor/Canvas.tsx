@@ -12,175 +12,89 @@ import {
 import type {
     ProjectNode,
     BaseStyleProperties,
+    LayoutMode,
 } from "@/model/type";
 
 import { useEditorStore } from "@/store/editorStore";
 import EditorOverlay from "./EditorOverlay";
 
 /* =========================================================
-   BUILT-IN ANIMATION KEYFRAMES
+   ANIMATION KEYFRAMES
 ========================================================= */
 
 const ANIMATION_KEYFRAMES = `
 @keyframes vwb-fade-in {
-    from {
-        opacity: 0;
-    }
-
-    to {
-        opacity: 1;
-    }
+    from { opacity: 0; }
+    to { opacity: 1; }
 }
 
 @keyframes vwb-fade-out {
-    from {
-        opacity: 1;
-    }
-
-    to {
-        opacity: 0;
-    }
+    from { opacity: 1; }
+    to { opacity: 0; }
 }
 
 @keyframes vwb-slide-up {
-    from {
-        transform: translateY(30px);
-    }
-
-    to {
-        transform: translateY(0);
-    }
+    from { transform: translateY(30px); }
+    to { transform: translateY(0); }
 }
 
 @keyframes vwb-slide-down {
-    from {
-        transform: translateY(-30px);
-    }
-
-    to {
-        transform: translateY(0);
-    }
+    from { transform: translateY(-30px); }
+    to { transform: translateY(0); }
 }
 
 @keyframes vwb-slide-left {
-    from {
-        transform: translateX(30px);
-    }
-
-    to {
-        transform: translateX(0);
-    }
+    from { transform: translateX(30px); }
+    to { transform: translateX(0); }
 }
 
 @keyframes vwb-slide-right {
-    from {
-        transform: translateX(-30px);
-    }
-
-    to {
-        transform: translateX(0);
-    }
+    from { transform: translateX(-30px); }
+    to { transform: translateX(0); }
 }
 
 @keyframes vwb-zoom-in {
-    from {
-        transform: scale(0.8);
-    }
-
-    to {
-        transform: scale(1);
-    }
+    from { transform: scale(0.8); }
+    to { transform: scale(1); }
 }
 
 @keyframes vwb-zoom-out {
-    from {
-        transform: scale(1.2);
-    }
-
-    to {
-        transform: scale(1);
-    }
+    from { transform: scale(1.2); }
+    to { transform: scale(1); }
 }
 
 @keyframes vwb-bounce {
-    0% {
-        transform: translateY(0);
-    }
-
-    20% {
-        transform: translateY(-25px);
-    }
-
-    40% {
-        transform: translateY(0);
-    }
-
-    60% {
-        transform: translateY(-12px);
-    }
-
-    80% {
-        transform: translateY(0);
-    }
-
-    100% {
-        transform: translateY(0);
-    }
+    0% { transform: translateY(0); }
+    20% { transform: translateY(-25px); }
+    40% { transform: translateY(0); }
+    60% { transform: translateY(-12px); }
+    80% { transform: translateY(0); }
+    100% { transform: translateY(0); }
 }
 
 @keyframes vwb-pulse {
-    0% {
-        transform: scale(1);
-    }
-
-    50% {
-        transform: scale(1.05);
-    }
-
-    100% {
-        transform: scale(1);
-    }
+    0% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+    100% { transform: scale(1); }
 }
 
 @keyframes vwb-shake {
-    0% {
-        transform: translateX(0);
-    }
-
-    20% {
-        transform: translateX(-10px);
-    }
-
-    40% {
-        transform: translateX(10px);
-    }
-
-    60% {
-        transform: translateX(-8px);
-    }
-
-    80% {
-        transform: translateX(8px);
-    }
-
-    100% {
-        transform: translateX(0);
-    }
+    0% { transform: translateX(0); }
+    20% { transform: translateX(-10px); }
+    40% { transform: translateX(10px); }
+    60% { transform: translateX(-8px); }
+    80% { transform: translateX(8px); }
+    100% { transform: translateX(0); }
 }
 
 @keyframes vwb-spin {
-    from {
-        transform: rotate(0deg);
-    }
-
-    to {
-        transform: rotate(360deg);
-    }
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
 }
 `;
 
 /* =========================================================
-   CANVAS PROPS
+   CANVAS
 ========================================================= */
 
 interface CanvasProps {
@@ -192,17 +106,13 @@ interface CanvasProps {
     viewportWidth: number;
 }
 
-/* =========================================================
-   VIEWPORT TYPE
-========================================================= */
-
 type ViewportType =
     | "desktop"
     | "tablet"
     | "mobile";
 
 /* =========================================================
-   RESOLVED NODE STYLES
+   RESPONSIVE STYLE RESOLUTION
 ========================================================= */
 
 function getResolvedStyles(
@@ -213,10 +123,6 @@ function getResolvedStyles(
         ...(node.styles ?? {}),
     };
 
-    /*
-     * Responsive metadata is not a CSS property.
-     */
-
     delete (
         baseStyles as BaseStyleProperties & {
             responsive?: unknown;
@@ -224,9 +130,7 @@ function getResolvedStyles(
     ).responsive;
 
     const responsiveStyles =
-        node.styles?.responsive?.[
-        viewport
-        ];
+        node.styles?.responsive?.[viewport];
 
     if (!responsiveStyles) {
         return baseStyles;
@@ -239,14 +143,129 @@ function getResolvedStyles(
 }
 
 /* =========================================================
-   RENDER NODE PROPS
+   GRID EDITOR GUIDE
+========================================================= */
+
+interface GridGuideProps {
+    columns: number;
+    columnGap: string;
+    rowGap: string;
+    isEmpty: boolean;
+}
+
+function GridGuide({
+    columns,
+    columnGap,
+    rowGap,
+    isEmpty,
+}: GridGuideProps) {
+    const safeColumns =
+        Math.max(
+            1,
+            Math.min(columns, 6)
+        );
+
+    return (
+        <div
+            aria-hidden="true"
+            style={{
+                position: "absolute",
+                inset: 0,
+
+                minHeight:
+                    isEmpty
+                        ? "160px"
+                        : undefined,
+
+                display: "grid",
+
+                gridTemplateColumns:
+                    `repeat(${safeColumns}, minmax(0, 1fr))`,
+
+                columnGap,
+
+                rowGap,
+
+                pointerEvents: "none",
+
+                zIndex: 9999,
+            }}
+        >
+            {Array.from({
+                length: safeColumns,
+            }).map(
+                (_, index) => (
+                    <div
+                        key={index}
+                        style={{
+                            minWidth: 0,
+
+                            borderLeft:
+                                "1px dashed rgba(59, 130, 246, 0.35)",
+
+                            borderRight:
+                                "1px dashed rgba(59, 130, 246, 0.35)",
+
+                            background:
+                                "rgba(59, 130, 246, 0.025)",
+                        }}
+                    />
+                )
+            )}
+
+            {/* Top boundary */}
+
+            <div
+                style={{
+                    position:
+                        "absolute",
+
+                    top: 0,
+
+                    left: 0,
+
+                    right: 0,
+
+                    borderTop:
+                        "1px dashed rgba(59, 130, 246, 0.35)",
+                }}
+            />
+
+            {/* Bottom boundary */}
+
+            <div
+                style={{
+                    position:
+                        "absolute",
+
+                    bottom: 0,
+
+                    left: 0,
+
+                    right: 0,
+
+                    borderBottom:
+                        "1px dashed rgba(59, 130, 246, 0.35)",
+                }}
+            />
+        </div>
+    );
+}
+
+/* =========================================================
+   RENDER NODE
 ========================================================= */
 
 interface RenderNodeProps {
     nodeId: string;
-
     viewport: ViewportType;
 }
+
+/* =========================================================
+   DRAG CONSTANTS
+========================================================= */
+
+const DRAG_THRESHOLD = 6;
 
 /* =========================================================
    DRAG STATE
@@ -262,10 +281,38 @@ interface NodeDragState {
     scale: number;
 
     hasMoved: boolean;
+
+    /*
+     * This is the dragged node's own layout mode.
+     *
+     * It is retained for Free Position behavior,
+     * but Grid behavior is determined from the
+     * dragged node's PARENT layout mode.
+     */
+    layoutMode: LayoutMode;
+
+    parentId: string | null;
+
+    /*
+     * Used only by Grid dragging.
+     *
+     * This stores the last insertion index so
+     * moveNode() is not called repeatedly when
+     * the pointer remains in the same position.
+     */
+    lastTargetIndex:
+    | number
+    | null;
+
+    /*
+     * True once the element has been converted to
+     * absolute positioning for Free Position mode.
+     */
+    freePositionInitialized: boolean;
 }
 
 /* =========================================================
-   RENDER NODE
+   RENDER NODE COMPONENT
 ========================================================= */
 
 function RenderNode({
@@ -274,17 +321,32 @@ function RenderNode({
 }: RenderNodeProps) {
     const project =
         useEditorStore(
-            (state) => state.project
+            (state) =>
+                state.project
+        );
+
+    const selectedNodeId =
+        useEditorStore(
+            (state) =>
+                state.selectedNodeId
         );
 
     const selectNode =
         useEditorStore(
-            (state) => state.selectNode
+            (state) =>
+                state.selectNode
         );
 
     const updateNodeStyles =
         useEditorStore(
-            (state) => state.updateNodeStyles
+            (state) =>
+                state.updateNodeStyles
+        );
+
+    const moveNode =
+        useEditorStore(
+            (state) =>
+                state.moveNode
         );
 
     const beginHistoryTransaction =
@@ -305,50 +367,57 @@ function RenderNode({
                 state.cancelHistoryTransaction
         );
 
-    const selectedNodeId =
-        useEditorStore(
-            (state) =>
-                state.selectedNodeId
-        );
-
     const node =
         project.nodes[nodeId];
 
-    const [isHovered, setIsHovered] =
-        useState(false);
+    const [
+        isHovered,
+        setIsHovered,
+    ] = useState(false);
 
-    /*
-     * A click animation needs a distinct "none" render before it can be
-     * applied again. This lets every click replay the animation, including
-     * clicks made after a previous run has finished.
-     */
-    const [isClickAnimationActive, setIsClickAnimationActive] =
-        useState(false);
+    const [
+        isClickAnimationActive,
+        setIsClickAnimationActive,
+    ] = useState(false);
 
-    const [isFocused, setIsFocused] =
-        useState(false);
+    const [
+        isFocused,
+        setIsFocused,
+    ] = useState(false);
+
+    const [
+        isScrollAnimationActive,
+        setIsScrollAnimationActive,
+    ] = useState(false);
+
+    const [
+        isDragActive,
+        setIsDragActive,
+    ] = useState(false);
+
+    const isPointerDown =
+        useRef(false);
+
+    const isDragging =
+        useRef(false);
 
     const dragState =
         useRef<NodeDragState | null>(
             null
         );
 
-    const isDragging =
-        useRef(false);
-
-    if (!node) {
-        return null;
-    }
-
     /* =====================================================
-       RESOLVE RESPONSIVE STYLES
+       RESOLVED STYLES
     ===================================================== */
 
-    const resolvedStyles =
-        getResolvedStyles(
-            node,
-            viewport
-        );
+    const resolvedStyles: BaseStyleProperties =
+        node
+            ? getResolvedStyles(node, viewport)
+            : {};
+
+    const layoutMode: LayoutMode =
+        resolvedStyles.layoutMode ??
+        "automatic";
 
     /* =====================================================
        ANIMATION
@@ -361,26 +430,57 @@ function RenderNode({
     const animationValue =
         resolvedStyles.animation;
 
+    useEffect(() => {
+        if (!node || animationTrigger !== "scroll") {
+            return;
+        }
+
+        const element = document.querySelector(
+            `[data-node-id="${node.id}"]`
+        );
+
+        if (!element || !("IntersectionObserver" in window)) {
+            return;
+        }
+
+        const observer = new IntersectionObserver(
+            ([entry]) => {
+                if (entry.isIntersecting) {
+                    setIsScrollAnimationActive(true);
+                    observer.disconnect();
+                }
+            },
+            { threshold: 0.2 }
+        );
+
+        observer.observe(element);
+        return () => observer.disconnect();
+    }, [animationTrigger, node, nodeId]);
+
+    if (!node) {
+        return null;
+    }
+
     const effectiveAnimation =
         animationTrigger === "hover"
-            ? (
-                isHovered
+            ? isHovered
+                ? animationValue
+                : "none"
+            : animationTrigger ===
+                "click"
+                ? isClickAnimationActive
                     ? animationValue
                     : "none"
-            )
-            : animationTrigger === "click"
-                ? (
-                    isClickAnimationActive
+                : animationTrigger ===
+                    "focus"
+                    ? isFocused
                         ? animationValue
                         : "none"
-                )
-                : animationTrigger === "focus"
-                    ? (
-                        isFocused
+                    : animationTrigger === "scroll"
+                        ? isScrollAnimationActive
                             ? animationValue
                             : "none"
-                    )
-                    : animationValue;
+                        : animationValue;
 
     /* =====================================================
        EDITOR SCALE
@@ -420,115 +520,952 @@ function RenderNode({
     }
 
     /* =====================================================
-       POINTER DOWN
-       
-       IMPORTANT:
-       Dragging is now handled by the actual
-       rendered element instead of an invisible
-       overlay.
-
-       This allows hover events to work.
+       CURRENT MODEL POSITION
     ===================================================== */
 
-    function handlePointerDown(
-        event: PointerEvent<HTMLElement>
-    ) {
-        /*
-         * Only left mouse button.
-         *
-         * Pointer buttons:
-         * 0 = primary/left
-         */
+    function getCurrentPosition() {
+        const left =
+            parseFloat(
+                resolvedStyles.left ??
+                "0"
+            ) || 0;
 
-        if (
-            event.pointerType === "mouse" &&
-            event.button !== 0
-        ) {
-            return;
+        const top =
+            parseFloat(
+                resolvedStyles.top ??
+                "0"
+            ) || 0;
+
+        return {
+            left,
+            top,
+        };
+    }
+
+    /* =====================================================
+       RENDERED POSITION RELATIVE TO PARENT
+    ===================================================== */
+
+    function getRenderedPositionRelativeToParent(
+        element: HTMLElement
+    ) {
+        if (!node.parentId) {
+            return null;
         }
 
-        event.stopPropagation();
+        const parentElement =
+            document.querySelector(
+                `[data-node-id="${node.parentId}"]`
+            ) as HTMLElement | null;
 
-        selectNode(node.id);
+        if (!parentElement) {
+            return null;
+        }
 
+        const scale =
+            getEditorScale();
+
+        const elementRect =
+            element.getBoundingClientRect();
+
+        const parentRect =
+            parentElement.getBoundingClientRect();
+
+        const parentLeft =
+            parentRect.left +
+            parentElement.clientLeft *
+            scale;
+
+        const parentTop =
+            parentRect.top +
+            parentElement.clientTop *
+            scale;
+
+        return {
+            left:
+                (elementRect.left -
+                    parentLeft) /
+                scale +
+                parentElement.scrollLeft,
+
+            top:
+                (elementRect.top -
+                    parentTop) /
+                scale +
+                parentElement.scrollTop,
+        };
+    }
+
+    /* =====================================================
+       CANVAS POSITION FOR ROOT-LEVEL ELEMENTS
+    ===================================================== */
+
+    function getRenderedPositionRelativeToViewport(
+        element: HTMLElement
+    ) {
         const viewportElement =
             document.querySelector(
                 "[data-viewport]"
             ) as HTMLElement | null;
 
         if (!viewportElement) {
-            return;
+            return null;
         }
 
         const scale =
             getEditorScale();
 
-        const currentLeft =
-            parseFloat(
-                node.styles?.left ??
-                "0"
-            ) || 0;
+        const elementRect =
+            element.getBoundingClientRect();
 
-        const currentTop =
-            parseFloat(
-                node.styles?.top ??
-                "0"
-            ) || 0;
+        const viewportRect =
+            viewportElement.getBoundingClientRect();
 
-        beginHistoryTransaction();
+        return {
+            left:
+                (elementRect.left -
+                    viewportRect.left) /
+                scale +
+                viewportElement.scrollLeft,
 
-        isDragging.current =
-            true;
-
-        dragState.current = {
-            startX:
-                event.clientX,
-
-            startY:
-                event.clientY,
-
-            startLeft:
-                currentLeft,
-
-            startTop:
-                currentTop,
-
-            scale,
-
-            hasMoved:
-                false,
+            top:
+                (elementRect.top -
+                    viewportRect.top) /
+                scale +
+                viewportElement.scrollTop,
         };
-
-        try {
-            event.currentTarget.setPointerCapture(
-                event.pointerId
-            );
-        } catch {
-            /*
-             * Pointer capture is not
-             * available in some environments.
-             */
-        }
     }
 
     /* =====================================================
-       POINTER MOVE
+       GET PARENT LAYOUT MODE
     ===================================================== */
 
-    function handlePointerMove(
+    function getParentLayoutMode():
+        | LayoutMode
+        | null {
+        const state =
+            dragState.current;
+
+        if (!state?.parentId) {
+            return null;
+        }
+
+        const parent =
+            project.nodes[
+            state.parentId
+            ];
+
+        if (!parent) {
+            return null;
+        }
+
+        const parentStyles =
+            getResolvedStyles(
+                parent,
+                viewport
+            );
+
+        return (
+            parentStyles.layoutMode ??
+            "automatic"
+        );
+    }
+
+    /* =====================================================
+       IS PARENT GRID
+    ===================================================== */
+
+    function isParentGrid() {
+        return (
+            getParentLayoutMode() ===
+            "grid"
+        );
+    }
+
+    /* =====================================================
+       INITIALIZE FREE DRAG POSITION
+    ===================================================== */
+
+    function initializeFreeDragPosition(
         event: PointerEvent<HTMLElement>
     ) {
+        const state =
+            dragState.current;
+
+        if (!state) {
+            return;
+        }
+
         if (
-            !isDragging.current ||
-            !dragState.current
+            state.freePositionInitialized
         ) {
             return;
         }
 
-        event.stopPropagation();
+        let renderedPosition:
+            | {
+                left: number;
+                top: number;
+            }
+            | null = null;
 
+        if (state.parentId) {
+            renderedPosition =
+                getRenderedPositionRelativeToParent(
+                    event.currentTarget
+                );
+        } else {
+            renderedPosition =
+                getRenderedPositionRelativeToViewport(
+                    event.currentTarget
+                );
+        }
+
+        if (!renderedPosition) {
+            const position =
+                getCurrentPosition();
+
+            renderedPosition = {
+                left:
+                    position.left,
+
+                top:
+                    position.top,
+            };
+        }
+
+        state.startLeft =
+            renderedPosition.left;
+
+        state.startTop =
+            renderedPosition.top;
+
+        /*
+         * Free Position requires the parent to become
+         * the coordinate system.
+         */
+        if (state.parentId) {
+            const parent =
+                project.nodes[
+                state.parentId
+                ];
+
+            if (
+                parent &&
+                parent.styles
+                    ?.position !==
+                "relative" &&
+                parent.styles
+                    ?.position !==
+                "absolute" &&
+                parent.styles
+                    ?.position !==
+                "fixed" &&
+                parent.styles
+                    ?.position !==
+                "sticky"
+            ) {
+                updateNodeStyles(
+                    parent.id,
+                    {
+                        position:
+                            "relative",
+                    }
+                );
+            }
+        }
+
+        /*
+         * IMPORTANT:
+         *
+         * Only Free Position converts the element
+         * to absolute positioning.
+         */
+        updateNodeStyles(
+            node.id,
+            {
+                position:
+                    "absolute",
+
+                left:
+                    `${Math.round(
+                        renderedPosition.left
+                    )}px`,
+
+                top:
+                    `${Math.round(
+                        renderedPosition.top
+                    )}px`,
+            }
+        );
+
+        state.freePositionInitialized =
+            true;
+    }
+
+    /* =====================================================
+   FLOW TARGET INDEX
+   
+   Used only by Horizontal / Vertical flow layouts.
+
+   Horizontal:
+   - compares pointer X against sibling centers.
+
+   Vertical:
+   - compares pointer Y against sibling centers.
+
+   The returned index is adjusted for the fact that
+   the dragged node is removed before insertion.
+===================================================== */
+
+    function getFlowTargetIndex(
+        event: PointerEvent<HTMLElement>
+    ) {
         const state =
             dragState.current;
+
+        if (!state) {
+            return null;
+        }
+
+        if (!state.parentId) {
+            return null;
+        }
+
+        const parent =
+            project.nodes[
+            state.parentId
+            ];
+
+        if (!parent) {
+            return null;
+        }
+
+        const children =
+            parent.children ?? [];
+
+        if (
+            children.length <= 1
+        ) {
+            return null;
+        }
+
+        /*
+         * Only Horizontal and Vertical should use
+         * this flow-reordering algorithm.
+         */
+        if (
+            state.layoutMode !==
+            "horizontal" &&
+            state.layoutMode !==
+            "vertical"
+        ) {
+            return null;
+        }
+
+        const direction =
+            state.layoutMode ===
+                "horizontal"
+                ? "horizontal"
+                : "vertical";
+
+        /*
+         * Use direct children only.
+         *
+         * We intentionally follow Project Model order
+         * rather than querying arbitrary descendants.
+         */
+        const siblings =
+            children
+                .filter(
+                    (childId) =>
+                        childId !==
+                        node.id
+                )
+                .map(
+                    (childId) => {
+                        const element =
+                            document.querySelector(
+                                `[data-node-id="${childId}"]`
+                            ) as HTMLElement | null;
+
+                        if (!element) {
+                            return null;
+                        }
+
+                        return {
+                            id: childId,
+                            index:
+                                children.indexOf(
+                                    childId
+                                ),
+                            element,
+                        };
+                    }
+                )
+                .filter(
+                    (
+                        item
+                    ): item is {
+                        id: string;
+                        index: number;
+                        element: HTMLElement;
+                    } =>
+                        item !== null
+                );
+
+        if (!siblings.length) {
+            return null;
+        }
+
+        const pointer =
+            direction ===
+                "horizontal"
+                ? event.clientX
+                : event.clientY;
+
+        const draggedIndex =
+            children.indexOf(
+                node.id
+            );
+
+        /*
+         * Find the first sibling whose midpoint is
+         * after the pointer.
+         */
+        for (
+            const sibling of siblings
+        ) {
+            const rect =
+                sibling.element.getBoundingClientRect();
+
+            const midpoint =
+                direction ===
+                    "horizontal"
+                    ? rect.left +
+                    rect.width / 2
+                    : rect.top +
+                    rect.height / 2;
+
+            if (
+                pointer <
+                midpoint
+            ) {
+                /*
+                 * The target index is based on the
+                 * current children array.
+                 *
+                 * Because the dragged node will be
+                 * removed first, indexes after the
+                 * dragged node shift left by one.
+                 */
+                if (
+                    draggedIndex !==
+                    -1 &&
+                    sibling.index >
+                    draggedIndex
+                ) {
+                    return (
+                        sibling.index -
+                        1
+                    );
+                }
+
+                return sibling.index;
+            }
+        }
+
+        /*
+         * Pointer is after every sibling.
+         *
+         * Using children.length is intentional:
+         * moveNode() removes the dragged item first,
+         * so this becomes an append operation.
+         */
+        return children.length;
+    }
+    /* =====================================================
+       GRID TARGET INDEX
+    ===================================================== */
+
+    function getGridTargetIndex(
+        event: PointerEvent<HTMLElement>
+    ): number | null {
+        const state =
+            dragState.current;
+
+        if (!state) {
+            return null;
+        }
+
+        if (!state.parentId) {
+            return null;
+        }
+
+        const parent =
+            project.nodes[
+            state.parentId
+            ];
+
+        if (!parent) {
+            return null;
+        }
+
+        const parentStyles =
+            getResolvedStyles(
+                parent,
+                viewport
+            );
+
+        if (
+            parentStyles.layoutMode !==
+            "grid"
+        ) {
+            return null;
+        }
+
+        const children =
+            parent.children ?? [];
+
+        if (
+            children.length <= 1
+        ) {
+            return 0;
+        }
+
+        /*
+         * The dragged item is removed from the list
+         * conceptually while calculating the target.
+         *
+         * This makes the target index directly usable
+         * by moveNode().
+         */
+        const siblingIds =
+            children.filter(
+                (childId) =>
+                    childId !== node.id
+            );
+
+        if (
+            siblingIds.length === 0
+        ) {
+            return 0;
+        }
+
+        /*
+         * Get rendered rectangles for the direct
+         * Grid children only.
+         */
+        const siblings =
+            siblingIds
+                .map(
+                    (childId) => {
+                        const element =
+                            document.querySelector(
+                                `[data-node-id="${childId}"]`
+                            ) as HTMLElement | null;
+
+                        if (!element) {
+                            return null;
+                        }
+
+                        const rect =
+                            element.getBoundingClientRect();
+
+                        return {
+                            childId,
+                            rect,
+                        };
+                    }
+                )
+                .filter(
+                    (
+                        item
+                    ): item is {
+                        childId: string;
+                        rect: DOMRect;
+                    } =>
+                        item !== null
+                );
+
+        if (
+            siblings.length === 0
+        ) {
+            return 0;
+        }
+
+        /*
+         * CSS Grid auto-placement is row-major.
+         *
+         * Sort the rendered siblings into visual
+         * row/column order.
+         */
+        siblings.sort(
+            (a, b) => {
+                const aCenterY =
+                    a.rect.top +
+                    a.rect.height / 2;
+
+                const bCenterY =
+                    b.rect.top +
+                    b.rect.height / 2;
+
+                const rowTolerance =
+                    Math.max(
+                        4,
+                        Math.min(
+                            a.rect.height,
+                            b.rect.height
+                        ) * 0.35
+                    );
+
+                if (
+                    Math.abs(
+                        aCenterY -
+                        bCenterY
+                    ) >
+                    rowTolerance
+                ) {
+                    return (
+                        aCenterY -
+                        bCenterY
+                    );
+                }
+
+                const aCenterX =
+                    a.rect.left +
+                    a.rect.width / 2;
+
+                const bCenterX =
+                    b.rect.left +
+                    b.rect.width / 2;
+
+                return (
+                    aCenterX -
+                    bCenterX
+                );
+            }
+        );
+
+        const pointerX =
+            event.clientX;
+
+        const pointerY =
+            event.clientY;
+
+        /*
+         * Determine the insertion point.
+         *
+         * The returned index is relative to the
+         * children array AFTER the dragged item
+         * has been removed.
+         */
+        for (
+            let index = 0;
+            index <
+            siblings.length;
+            index++
+        ) {
+            const sibling =
+                siblings[index];
+
+            const rect =
+                sibling.rect;
+
+            const centerX =
+                rect.left +
+                rect.width / 2;
+
+            const centerY =
+                rect.top +
+                rect.height / 2;
+
+            /*
+             * If pointer is above this item's row,
+             * insert before this sibling.
+             */
+            if (
+                pointerY <
+                rect.top
+            ) {
+                return index;
+            }
+
+            /*
+             * If pointer is inside this item's row,
+             * use horizontal position.
+             */
+            if (
+                pointerY >=
+                rect.top &&
+                pointerY <=
+                rect.bottom
+            ) {
+                if (
+                    pointerX <
+                    centerX
+                ) {
+                    return index;
+                }
+
+                /*
+                 * Pointer is on the right half.
+                 * Continue to the next sibling.
+                 */
+                continue;
+            }
+
+            /*
+             * Pointer is below the item.
+             *
+             * If the next item belongs to a lower row,
+             * the pointer may belong after this item.
+             */
+            const next =
+                siblings[index + 1];
+
+            if (!next) {
+                return siblings.length;
+            }
+
+            const nextCenterY =
+                next.rect.top +
+                next.rect.height / 2;
+
+            const currentCenterY =
+                centerY;
+
+            const rowGapBoundary =
+                (
+                    currentCenterY +
+                    nextCenterY
+                ) / 2;
+
+            if (
+                pointerY <
+                rowGapBoundary
+            ) {
+                return index + 1;
+            }
+        }
+
+        /*
+         * Pointer is after every sibling.
+         */
+        return siblings.length;
+    }
+
+    /* =====================================================
+       GRID DRAG
+    ===================================================== */
+
+    function handleGridCanvasDrag(
+        event: PointerEvent<HTMLElement>
+    ) {
+        const state =
+            dragState.current;
+
+        if (!state) {
+            return;
+        }
+
+        if (!state.parentId) {
+            return;
+        }
+
+        const parent =
+            project.nodes[
+            state.parentId
+            ];
+
+        if (!parent) {
+            return;
+        }
+
+        const parentStyles =
+            getResolvedStyles(
+                parent,
+                viewport
+            );
+
+        const parentLayoutMode =
+            parentStyles.layoutMode ??
+            "automatic";
+
+        /*
+         * Grid drag is active only when the PARENT
+         * is Grid.
+         */
+        if (
+            parentLayoutMode !==
+            "grid"
+        ) {
+            return;
+        }
+
+        const children =
+            parent.children ?? [];
+
+        const currentIndex =
+            children.indexOf(
+                node.id
+            );
+
+        if (
+            currentIndex === -1
+        ) {
+            return;
+        }
+
+        const targetIndex =
+            getGridTargetIndex(
+                event
+            );
+
+        if (
+            targetIndex === null
+        ) {
+            return;
+        }
+
+        /*
+         * If the target represents the same location,
+         * there is nothing to do.
+         */
+        if (
+            state.lastTargetIndex ===
+            targetIndex
+        ) {
+            return;
+        }
+
+        /*
+         * Determine the current position after
+         * conceptually removing the dragged item.
+         */
+        const remainingChildren =
+            children.filter(
+                (childId) =>
+                    childId !==
+                    node.id
+            );
+
+        /*
+         * If removing the dragged item and inserting
+         * at the same position produces the same order,
+         * do nothing.
+         */
+        const clampedTarget =
+            Math.max(
+                0,
+                Math.min(
+                    targetIndex,
+                    remainingChildren.length
+                )
+            );
+
+        const nextChildren = [
+            ...remainingChildren,
+        ];
+
+        nextChildren.splice(
+            clampedTarget,
+            0,
+            node.id
+        );
+
+        const currentChildren =
+            children;
+
+        const orderChanged =
+            nextChildren.some(
+                (
+                    childId,
+                    index
+                ) =>
+                    childId !==
+                    currentChildren[
+                    index
+                    ]
+            );
+
+        if (!orderChanged) {
+            state.lastTargetIndex =
+                targetIndex;
+
+            return;
+        }
+
+        /*
+         * Remember the target before updating
+         * the Project Model.
+         */
+        state.lastTargetIndex =
+            targetIndex;
+
+        /*
+         * IMPORTANT:
+         *
+         * Grid drag changes ONLY the structural
+         * child order.
+         *
+         * It does NOT change:
+         *
+         * - position
+         * - left
+         * - top
+         * - right
+         * - bottom
+         *
+         * CSS Grid remains responsible for placement.
+         */
+        moveNode(
+            node.id,
+            parent.id,
+            clampedTarget
+        );
+    }
+
+    /* =====================================================
+   HORIZONTAL / VERTICAL FLOW DRAG
+   
+   Reorders the child structurally.
+
+   IMPORTANT:
+   This never changes:
+   - position
+   - left
+   - top
+
+   The flex layout remains responsible for
+   positioning the element.
+===================================================== */
+
+    function handleFlowCanvasDrag(
+        event: PointerEvent<HTMLElement>
+    ) {
+        const state =
+            dragState.current;
+
+        if (!state) {
+            return;
+        }
+
+        if (!state.parentId) {
+            return;
+        }
+
+        /*
+         * Only Horizontal / Vertical flow modes.
+         */
+        if (
+            state.layoutMode !==
+            "horizontal" &&
+            state.layoutMode !==
+            "vertical"
+        ) {
+            return;
+        }
 
         const deltaX =
             (
@@ -543,19 +1480,318 @@ function RenderNode({
             ) / state.scale;
 
         /*
-         * Don't treat tiny pointer
-         * movement as a drag.
+         * Ignore tiny movement.
          */
-
         if (
-            Math.abs(deltaX) < 1 &&
-            Math.abs(deltaY) < 1
+            Math.abs(deltaX) <
+            DRAG_THRESHOLD &&
+            Math.abs(deltaY) <
+            DRAG_THRESHOLD
         ) {
             return;
         }
 
         state.hasMoved =
             true;
+
+        const targetIndex =
+            getFlowTargetIndex(
+                event
+            );
+
+        if (
+            targetIndex ===
+            null
+        ) {
+            return;
+        }
+
+        /*
+         * Prevent moveNode() from firing repeatedly
+         * while the pointer remains in the same slot.
+         */
+        if (
+            state.lastTargetIndex ===
+            targetIndex
+        ) {
+            return;
+        }
+
+        state.lastTargetIndex =
+            targetIndex;
+
+        moveNode(
+            node.id,
+            state.parentId,
+            targetIndex
+        );
+    }
+
+    /* =====================================================
+       BEGIN ACTUAL DRAG
+    ===================================================== */
+
+    function beginActualDrag(
+        event: PointerEvent<HTMLElement>
+    ) {
+        const state =
+            dragState.current;
+
+        if (!state) {
+            return;
+        }
+
+        if (
+            isDragging.current
+        ) {
+            return;
+        }
+
+        /*
+         * One history transaction for the entire drag.
+         */
+        beginHistoryTransaction();
+
+        isDragging.current =
+            true;
+
+        state.hasMoved =
+            true;
+
+        /*
+         * IMPORTANT:
+         *
+         * Grid mode is determined from the PARENT,
+         * not from the dragged child.
+         */
+        if (
+            isParentGrid()
+        ) {
+            setIsDragActive(
+                true
+            );
+
+            /*
+             * Grid children stay in normal CSS Grid flow.
+             */
+            handleGridCanvasDrag(
+                event
+            );
+
+            return;
+        }
+
+        /*
+ * HORIZONTAL / VERTICAL
+ *
+ * Keep the element in normal flow.
+ * The flex container remains responsible
+ * for positioning it.
+ */
+        if (
+            state.layoutMode ===
+            "horizontal" ||
+            state.layoutMode ===
+            "vertical"
+        ) {
+            setIsDragActive(
+                true
+            );
+
+            /*
+             * Calculate the first target immediately.
+             */
+            handleFlowCanvasDrag(
+                event
+            );
+
+            return;
+        }
+
+        /*
+         * FREE POSITION
+         *
+         * Only Free Position converts the element
+         * to absolute positioning.
+         */
+        initializeFreeDragPosition(
+            event
+        );
+
+        setIsDragActive(
+            true
+        );
+    }
+
+    /* =====================================================
+       POINTER DOWN
+    ===================================================== */
+
+    function handlePointerDown(
+        event: PointerEvent<HTMLElement>
+    ) {
+        if (
+            event.pointerType ===
+            "mouse" &&
+            event.button !== 0
+        ) {
+            return;
+        }
+
+        event.stopPropagation();
+
+        selectNode(
+            node.id
+        );
+
+        const viewportElement =
+            document.querySelector(
+                "[data-viewport]"
+            ) as HTMLElement | null;
+
+        if (!viewportElement) {
+            return;
+        }
+
+        const scale =
+            getEditorScale();
+
+        const position =
+            getCurrentPosition();
+
+        /*
+         * Determine the layout mode from the parent.
+         *
+         * A child is positioned/reordered according to
+         * its parent's layout mode.
+         */
+        let dragLayoutMode =
+            layoutMode;
+
+        if (
+            node.parentId
+        ) {
+            const parent =
+                project.nodes[
+                node.parentId
+                ];
+
+            if (parent) {
+                const parentStyles =
+                    getResolvedStyles(
+                        parent,
+                        viewport
+                    );
+
+                dragLayoutMode =
+                    parentStyles.layoutMode ??
+                    "automatic";
+            }
+        }
+
+        isPointerDown.current =
+            true;
+
+        dragState.current = {
+            startX:
+                event.clientX,
+
+            startY:
+                event.clientY,
+
+            startLeft:
+                position.left,
+
+            startTop:
+                position.top,
+
+            scale,
+
+            hasMoved:
+                false,
+
+            layoutMode:
+                dragLayoutMode,
+
+            parentId:
+                node.parentId ??
+                null,
+
+            lastTargetIndex:
+                null,
+
+            freePositionInitialized:
+                false,
+        };
+
+        try {
+            event.currentTarget.setPointerCapture(
+                event.pointerId
+            );
+        } catch {
+            /*
+             * Pointer capture may be unavailable.
+             */
+        }
+    }
+
+    /* =====================================================
+       FREE CANVAS DRAG
+    ===================================================== */
+
+    function handleFreeCanvasDrag(
+        event: PointerEvent<HTMLElement>
+    ) {
+        const state =
+            dragState.current;
+
+        if (!state) {
+            return;
+        }
+
+        const deltaX =
+            (event.clientX -
+                state.startX) /
+            state.scale;
+
+        const deltaY =
+            (event.clientY -
+                state.startY) /
+            state.scale;
+
+        if (
+            !isDragging.current &&
+            Math.abs(deltaX) <
+            DRAG_THRESHOLD &&
+            Math.abs(deltaY) <
+            DRAG_THRESHOLD
+        ) {
+            return;
+        }
+
+        if (
+            !isDragging.current
+        ) {
+            beginActualDrag(
+                event
+            );
+        }
+
+        if (
+            !isDragging.current
+        ) {
+            return;
+        }
+
+        /*
+         * If this is actually a Grid drag,
+         * do NOT perform Free Position updates.
+         */
+        if (
+            isParentGrid()
+        ) {
+            return;
+        }
 
         const newLeft =
             state.startLeft +
@@ -569,7 +1805,7 @@ function RenderNode({
             node.id,
             {
                 position:
-                    "relative",
+                    "absolute",
 
                 left:
                     `${Math.round(
@@ -585,6 +1821,114 @@ function RenderNode({
     }
 
     /* =====================================================
+       POINTER MOVE
+    ===================================================== */
+
+    function handlePointerMove(
+        event: PointerEvent<HTMLElement>
+    ) {
+        if (
+            !isPointerDown.current ||
+            !dragState.current
+        ) {
+            return;
+        }
+
+        const state =
+            dragState.current;
+
+        const deltaX =
+            (event.clientX -
+                state.startX) /
+            state.scale;
+
+        const deltaY =
+            (event.clientY -
+                state.startY) /
+            state.scale;
+
+        const passedThreshold =
+            Math.abs(deltaX) >=
+            DRAG_THRESHOLD ||
+            Math.abs(deltaY) >=
+            DRAG_THRESHOLD;
+
+        if (
+            !isDragging.current &&
+            !passedThreshold
+        ) {
+            return;
+        }
+
+        event.preventDefault();
+        event.stopPropagation();
+
+        /*
+         * IMPORTANT:
+         *
+         * Grid mode belongs to the PARENT.
+         *
+         * A Grid child usually has:
+         *
+         * layoutMode = automatic
+         *
+         * while its parent has:
+         *
+         * layoutMode = grid
+         *
+         * Therefore we must check the parent here.
+         */
+        if (
+            isParentGrid()
+        ) {
+            if (
+                !isDragging.current
+            ) {
+                beginActualDrag(
+                    event
+                );
+            }
+
+            if (
+                isDragging.current
+            ) {
+                handleGridCanvasDrag(
+                    event
+                );
+            }
+
+            return;
+        }
+
+        /*
+ * HORIZONTAL / VERTICAL
+ *
+ * Reorder within the normal flow.
+ */
+        if (
+            state.layoutMode ===
+            "horizontal" ||
+            state.layoutMode ===
+            "vertical"
+        ) {
+            handleFlowCanvasDrag(
+                event
+            );
+
+            return;
+        }
+
+        /*
+         * FREE POSITION
+         *
+         * Coordinate-based dragging.
+         */
+        handleFreeCanvasDrag(
+            event
+        );
+    }
+
+    /* =====================================================
        POINTER UP
     ===================================================== */
 
@@ -592,16 +1936,17 @@ function RenderNode({
         event: PointerEvent<HTMLElement>
     ) {
         if (
-            !isDragging.current
+            !isPointerDown.current
         ) {
             return;
         }
 
         event.stopPropagation();
 
-        const moved =
-            dragState.current
-                ?.hasMoved ??
+        const actuallyDragged =
+            isDragging.current;
+
+        isPointerDown.current =
             false;
 
         isDragging.current =
@@ -610,20 +1955,73 @@ function RenderNode({
         dragState.current =
             null;
 
+        setIsDragActive(
+            false
+        );
+
         try {
             event.currentTarget.releasePointerCapture(
                 event.pointerId
             );
         } catch {
             /*
-             * Pointer capture may already
-             * have been released.
+             * Pointer capture may already have
+             * been released.
              */
         }
 
-        if (moved) {
+        if (
+            actuallyDragged
+        ) {
             endHistoryTransaction();
         } else {
+            cancelHistoryTransaction();
+        }
+    }
+
+    /* =====================================================
+       POINTER CANCEL
+    ===================================================== */
+
+    function handlePointerCancel(
+        event: PointerEvent<HTMLElement>
+    ) {
+        if (
+            !isPointerDown.current
+        ) {
+            return;
+        }
+
+        const actuallyDragged =
+            isDragging.current;
+
+        isPointerDown.current =
+            false;
+
+        isDragging.current =
+            false;
+
+        dragState.current =
+            null;
+
+        setIsDragActive(
+            false
+        );
+
+        try {
+            event.currentTarget.releasePointerCapture(
+                event.pointerId
+            );
+        } catch {
+            /*
+             * Pointer capture may already have
+             * been released.
+             */
+        }
+
+        if (
+            actuallyDragged
+        ) {
             cancelHistoryTransaction();
         }
     }
@@ -637,18 +2035,28 @@ function RenderNode({
     ) {
         event.stopPropagation();
 
-        selectNode(node.id);
+        selectNode(
+            node.id
+        );
 
         if (
-            animationTrigger === "click" &&
+            animationTrigger ===
+            "click" &&
             animationValue &&
-            animationValue !== "none"
+            animationValue !==
+            "none"
         ) {
-            setIsClickAnimationActive(false);
+            setIsClickAnimationActive(
+                false
+            );
 
-            requestAnimationFrame(() => {
-                setIsClickAnimationActive(true);
-            });
+            requestAnimationFrame(
+                () => {
+                    setIsClickAnimationActive(
+                        true
+                    );
+                }
+            );
         }
     }
 
@@ -657,30 +2065,38 @@ function RenderNode({
     ===================================================== */
 
     function handleMouseEnter() {
-        setIsHovered(true);
+        setIsHovered(
+            true
+        );
     }
 
     function handleMouseLeave() {
-        setIsHovered(false);
-    }
-
-    function handleFocus() {
-        setIsFocused(true);
-    }
-
-    function handleBlur() {
-        setIsFocused(false);
+        setIsHovered(
+            false
+        );
     }
 
     /* =====================================================
-       STYLE
+       FOCUS
+    ===================================================== */
+
+    function handleFocus() {
+        setIsFocused(
+            true
+        );
+    }
+
+    function handleBlur() {
+        setIsFocused(
+            false
+        );
+    }
+
+    /* =====================================================
+       RENDER STYLE
     ===================================================== */
 
     const style: CSSProperties = {
-        /* -------------------------------------------------
-           SIZE
-        ------------------------------------------------- */
-
         width:
             resolvedStyles.width,
 
@@ -698,10 +2114,6 @@ function RenderNode({
 
         maxHeight:
             resolvedStyles.maxHeight,
-
-        /* -------------------------------------------------
-           POSITION
-        ------------------------------------------------- */
 
         position:
             resolvedStyles.position as
@@ -722,10 +2134,6 @@ function RenderNode({
         zIndex:
             resolvedStyles.zIndex,
 
-        /* -------------------------------------------------
-           MARGIN
-        ------------------------------------------------- */
-
         marginTop:
             resolvedStyles.marginTop,
 
@@ -737,10 +2145,6 @@ function RenderNode({
 
         marginLeft:
             resolvedStyles.marginLeft,
-
-        /* -------------------------------------------------
-           PADDING
-        ------------------------------------------------- */
 
         paddingTop:
             resolvedStyles.paddingTop,
@@ -754,16 +2158,8 @@ function RenderNode({
         paddingLeft:
             resolvedStyles.paddingLeft,
 
-        /* -------------------------------------------------
-           DISPLAY
-        ------------------------------------------------- */
-
         display:
             resolvedStyles.display,
-
-        /* -------------------------------------------------
-           FLEX
-        ------------------------------------------------- */
 
         flexDirection:
             resolvedStyles.flexDirection as
@@ -788,6 +2184,34 @@ function RenderNode({
         gap:
             resolvedStyles.gap,
 
+        gridTemplateColumns:
+            resolvedStyles.gridTemplateColumns,
+
+        gridTemplateRows:
+            resolvedStyles.gridTemplateRows,
+
+        justifyItems:
+            resolvedStyles.justifyItems as
+            CSSProperties["justifyItems"],
+
+        gridColumnStart:
+            resolvedStyles.gridColumnStart,
+
+        gridColumnEnd:
+            resolvedStyles.gridColumnEnd,
+
+        gridRowStart:
+            resolvedStyles.gridRowStart,
+
+        gridRowEnd:
+            resolvedStyles.gridRowEnd,
+
+        columnGap:
+            resolvedStyles.columnGap,
+
+        rowGap:
+            resolvedStyles.rowGap,
+
         flexWrap:
             resolvedStyles.flexWrap as
             CSSProperties["flexWrap"],
@@ -803,10 +2227,6 @@ function RenderNode({
 
         order:
             resolvedStyles.order,
-
-        /* -------------------------------------------------
-           TYPOGRAPHY
-        ------------------------------------------------- */
 
         fontFamily:
             resolvedStyles.fontFamily,
@@ -834,10 +2254,6 @@ function RenderNode({
         textDecoration:
             resolvedStyles.textDecoration,
 
-        /* -------------------------------------------------
-           COLORS
-        ------------------------------------------------- */
-
         color:
             resolvedStyles.color,
 
@@ -846,10 +2262,6 @@ function RenderNode({
 
         backgroundImage:
             resolvedStyles.backgroundImage,
-
-        /* -------------------------------------------------
-           BORDER
-        ------------------------------------------------- */
 
         borderRadius:
             resolvedStyles.borderRadius,
@@ -864,10 +2276,6 @@ function RenderNode({
         borderColor:
             resolvedStyles.borderColor,
 
-        /* -------------------------------------------------
-           EFFECTS
-        ------------------------------------------------- */
-
         opacity:
             resolvedStyles.opacity,
 
@@ -877,45 +2285,39 @@ function RenderNode({
         transform:
             resolvedStyles.transform,
 
-        /*
-         * LOAD animation remains unchanged.
-         *
-         * HOVER animation is controlled by
-         * effectiveAnimation.
-         */
-
         animation:
-            effectiveAnimation,
+            isDragActive
+                ? "none"
+                : effectiveAnimation,
 
         transition:
-            resolvedStyles.transition,
-
-        /* -------------------------------------------------
-           OVERFLOW
-        ------------------------------------------------- */
+            isDragActive
+                ? "none"
+                : resolvedStyles.transition,
 
         overflow:
             resolvedStyles.overflow as
             CSSProperties["overflow"],
 
-        /* -------------------------------------------------
-           INTERACTION
-        ------------------------------------------------- */
-
         cursor:
-            resolvedStyles.cursor,
-
-        /* -------------------------------------------------
-           IMAGE
-        ------------------------------------------------- */
+            isDragActive
+                ? "grabbing"
+                : resolvedStyles.cursor ||
+                "grab",
 
         objectFit:
             resolvedStyles.objectFit as
             CSSProperties["objectFit"],
+
+        userSelect:
+            "none",
+
+        touchAction:
+            "none",
     };
 
     /* =====================================================
-       COMMON INTERACTION PROPS
+       INTERACTION PROPS
     ===================================================== */
 
     const interactionProps = {
@@ -934,6 +2336,9 @@ function RenderNode({
         onPointerUp:
             handlePointerUp,
 
+        onPointerCancel:
+            handlePointerCancel,
+
         onMouseEnter:
             handleMouseEnter,
 
@@ -947,26 +2352,44 @@ function RenderNode({
             handleBlur,
 
         tabIndex:
-            animationTrigger === "focus"
+            animationTrigger ===
+                "focus"
                 ? 0
                 : undefined,
     };
+
+    /* =====================================================
+       HOVER / DRAG CLASS
+    ===================================================== */
 
     const hoverClass =
         isHovered
             ? "outline outline-1 outline-blue-200"
             : "";
 
+    const dragClass =
+        isDragActive
+            ? "outline outline-2 outline-blue-500 ring-2 ring-blue-300 ring-offset-2 shadow-lg"
+            : "";
+
+    const interactionClass =
+        `${hoverClass} ${dragClass}`.trim();
+
     /* =====================================================
        TEXT
     ===================================================== */
 
-    if (node.type === "text") {
+    if (
+        node.type ===
+        "text"
+    ) {
         return (
             <div
                 {...interactionProps}
                 style={style}
-                className={hoverClass}
+                className={
+                    interactionClass
+                }
             >
                 {node.content}
             </div>
@@ -977,12 +2400,17 @@ function RenderNode({
        BUTTON
     ===================================================== */
 
-    if (node.type === "button") {
+    if (
+        node.type ===
+        "button"
+    ) {
         return (
             <button
                 {...interactionProps}
                 style={style}
-                className={hoverClass}
+                className={
+                    interactionClass
+                }
                 type="button"
             >
                 {node.content}
@@ -994,7 +2422,10 @@ function RenderNode({
        IMAGE
     ===================================================== */
 
-    if (node.type === "image") {
+    if (
+        node.type ===
+        "image"
+    ) {
         const asset =
             node.assetId
                 ? project.assets[
@@ -1010,7 +2441,6 @@ function RenderNode({
             return (
                 <div
                     {...interactionProps}
-                    style={style}
                     className={`
                         flex
                         min-h-[120px]
@@ -1019,8 +2449,9 @@ function RenderNode({
                         bg-gray-100
                         text-sm
                         text-gray-400
-                        ${hoverClass}
+                        ${interactionClass}
                     `}
+                    style={style}
                 >
                     Image
                 </div>
@@ -1047,26 +2478,83 @@ function RenderNode({
                         resolvedStyles.objectFit as
                         CSSProperties["objectFit"],
                 }}
-                className={hoverClass}
+                className={
+                    interactionClass
+                }
+                draggable={false}
             />
         );
     }
 
     /* =====================================================
-       STRUCTURAL NODES
+       CONTAINER-LIKE NODES
     ===================================================== */
 
     if (
-        node.type === "page" ||
-        node.type === "section" ||
-        node.type === "container" ||
-        node.type === "navbar"
+        node.type ===
+        "page" ||
+        node.type ===
+        "section" ||
+        node.type ===
+        "container" ||
+        node.type ===
+        "navbar"
     ) {
+        const isSelectedGrid =
+            selectedNodeId ===
+            node.id &&
+            layoutMode ===
+            "grid";
+
+        const gridTemplateColumns =
+            resolvedStyles.gridTemplateColumns ||
+            "repeat(3, minmax(0, 1fr))";
+
+        const gridMatch =
+            gridTemplateColumns.match(
+                /repeat\(\s*(\d+)/
+            );
+
+        const gridColumns =
+            gridMatch
+                ? Number(
+                    gridMatch[1]
+                )
+                : 3;
+
+        const isGridEmpty =
+            !node.children ||
+            node.children.length ===
+            0;
+
         return (
             <div
                 {...interactionProps}
-                style={style}
-                className={hoverClass}
+                style={{
+                    ...style,
+
+                    /*
+                     * The Grid guide is absolute,
+                     * therefore the selected Grid
+                     * container needs a positioning
+                     * context.
+                     */
+                    ...(isSelectedGrid &&
+                        style.position !==
+                        "absolute" &&
+                        style.position !==
+                        "fixed" &&
+                        style.position !==
+                        "sticky"
+                        ? {
+                            position:
+                                "relative",
+                        }
+                        : {}),
+                }}
+                className={
+                    interactionClass
+                }
             >
                 {node.children?.map(
                     (
@@ -1085,6 +2573,25 @@ function RenderNode({
                         />
                     )
                 )}
+
+                {isSelectedGrid && (
+                    <GridGuide
+                        columns={
+                            gridColumns
+                        }
+                        columnGap={
+                            resolvedStyles.columnGap ||
+                            "20px"
+                        }
+                        rowGap={
+                            resolvedStyles.rowGap ||
+                            "20px"
+                        }
+                        isEmpty={
+                            isGridEmpty
+                        }
+                    />
+                )}
             </div>
         );
     }
@@ -1102,23 +2609,29 @@ export default function Canvas({
 }: CanvasProps) {
     const project =
         useEditorStore(
-            (state) => state.project
+            (state) =>
+                state.project
         );
 
     const selectNode =
         useEditorStore(
-            (state) => state.selectNode
+            (state) =>
+                state.selectNode
         );
 
-    /* =====================================================
-       CANVAS SIZE
-    ===================================================== */
-
     const canvasRef =
-        useRef<HTMLDivElement>(null);
+        useRef<HTMLDivElement>(
+            null
+        );
 
-    const [canvasWidth, setCanvasWidth] =
-        useState(0);
+    const [
+        canvasWidth,
+        setCanvasWidth,
+    ] = useState(0);
+
+    /* =====================================================
+       CANVAS WIDTH
+    ===================================================== */
 
     useEffect(() => {
         const element =
@@ -1142,18 +2655,20 @@ export default function Canvas({
                 updateCanvasWidth
             );
 
-        observer.observe(element);
+        observer.observe(
+            element
+        );
 
-        return () => {
+        return () =>
             observer.disconnect();
-        };
     }, []);
 
     /* =====================================================
-       EDITOR SCALE
+       CANVAS SCALING
     ===================================================== */
 
-    const horizontalPadding = 40;
+    const horizontalPadding =
+        40;
 
     const availableWidth =
         Math.max(
@@ -1171,11 +2686,8 @@ export default function Canvas({
             )
             : 1;
 
-    /* =====================================================
-       SCALED DIMENSIONS
-    ===================================================== */
-
-    const viewportMinHeight = 900;
+    const viewportMinHeight =
+        900;
 
     const scaledViewportWidth =
         viewportWidth *
@@ -1214,7 +2726,7 @@ export default function Canvas({
     }
 
     /* =====================================================
-       CANVAS
+       RENDER CANVAS
     ===================================================== */
 
     return (
@@ -1275,7 +2787,9 @@ export default function Canvas({
                         }
                     >
                         <style>
-                            {ANIMATION_KEYFRAMES}
+                            {
+                                ANIMATION_KEYFRAMES
+                            }
                         </style>
 
                         <RenderNode

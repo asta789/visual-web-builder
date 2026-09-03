@@ -148,7 +148,8 @@ function LayerItem({
         const canReceiveChildren =
             node.type === "page" ||
             node.type === "section" ||
-            node.type === "container";
+            node.type === "container" ||
+            node.type === "navbar";
 
         /*
          * Dropping on a structural node
@@ -234,7 +235,8 @@ function LayerItem({
         const canReceiveChildren =
             node.type === "page" ||
             node.type === "section" ||
-            node.type === "container";
+            node.type === "container" ||
+            node.type === "navbar";
 
         if (canReceiveChildren) {
             moveNode(
