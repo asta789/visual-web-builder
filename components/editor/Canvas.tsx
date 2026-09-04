@@ -16,6 +16,10 @@ import type {
     DesignToken,
 } from "@/model/type";
 
+import IconElement, { type BuilderIconName } from "./IconElement";
+import VideoElement from "./VideoElement";
+import AudioElement from "./AudioElement";
+
 import { useEditorStore } from "@/store/editorStore";
 import { createTokenVariableMap } from "./design-tokens/tokenUtils";
 import { mergeReusableStyleClasses } from "./reusable-styles/styleClassUtils";
@@ -2575,6 +2579,71 @@ function RenderNode({
             >
                 {node.content}
             </div>
+        );
+    }
+
+    /* =====================================================
+       ICON
+    ===================================================== */
+
+    if (node.type === "icon") {
+        return (
+            <IconElement
+                {...interactionProps}
+                name={(node.iconName || "star") as BuilderIconName}
+                size={node.iconSize || 32}
+                strokeWidth={node.iconStrokeWidth || 2}
+                style={style}
+                className={interactionClass}
+            />
+        );
+    }
+
+    /* =====================================================
+       VIDEO
+    ===================================================== */
+
+    if (node.type === "video") {
+        return (
+            <VideoElement
+                {...interactionProps}
+                source={node.videoSource}
+                poster={node.videoPoster}
+                controls={node.videoControls ?? true}
+                autoPlay={node.videoAutoplay ?? false}
+                muted={node.videoMuted ?? true}
+                loop={node.videoLoop ?? false}
+                preload={node.videoPreload ?? "metadata"}
+                style={{
+                    ...style,
+                    objectFit:
+                        resolvedStyles.objectFit as CSSProperties["objectFit"],
+                    objectPosition:
+                        resolvedStyles.objectPosition as CSSProperties["objectPosition"],
+                }}
+                className={interactionClass}
+            />
+        );
+    }
+
+    /* =====================================================
+       AUDIO
+    ===================================================== */
+
+    if (node.type === "audio") {
+        return (
+            <AudioElement
+                {...interactionProps}
+                source={node.audioSource}
+                controls={node.audioControls ?? true}
+                autoPlay={node.audioAutoplay ?? false}
+                muted={node.audioMuted ?? false}
+                loop={node.audioLoop ?? false}
+                preload={node.audioPreload ?? "metadata"}
+                volume={node.audioVolume ?? 1}
+                style={style}
+                className={interactionClass}
+            />
         );
     }
 

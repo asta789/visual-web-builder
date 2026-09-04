@@ -750,6 +750,27 @@ function renderPreviewNode(
     }
 
     /* =====================================================
+       ICON
+    ===================================================== */
+
+    if (node.type === "icon") {
+        const iconName = escapeHtml(node.iconName || "star");
+        const iconSize = Number(node.iconSize) || 32;
+        const strokeWidth = Number(node.iconStrokeWidth) || 2;
+
+        return `
+            <div${classAttribute}${animationTriggerAttribute}${focusableAttribute}${styleAttribute}>
+                <i
+                    data-lucide="${iconName}"
+                    data-icon-size="${iconSize}"
+                    data-icon-stroke-width="${strokeWidth}"
+                    aria-hidden="true"
+                ></i>
+            </div>
+        `;
+    }
+
+    /* =====================================================
        BUTTON
     ===================================================== */
 
@@ -802,6 +823,93 @@ function renderPreviewNode(
             "Button"
         )}
             </button>
+        `;
+    }
+
+    /* =====================================================
+       VIDEO
+    ===================================================== */
+
+    if (node.type === "video") {
+        const source = node.videoSource || "";
+        const poster = node.videoPoster || "";
+        const controls = node.videoControls ?? true;
+        const autoplay = node.videoAutoplay ?? false;
+        const muted = node.videoMuted ?? true;
+        const loop = node.videoLoop ?? false;
+        const preload = node.videoPreload || "metadata";
+
+        if (source) {
+            return `
+                <video
+                    src="${escapeHtml(source)}"
+                    ${poster ? `poster="${escapeHtml(poster)}"` : ""}
+                    ${controls ? "controls" : ""}
+                    ${autoplay ? "autoplay" : ""}
+                    ${muted ? "muted" : ""}
+                    ${loop ? "loop" : ""}
+                    preload="${escapeHtml(preload)}"
+                    playsinline
+                    ${classAttribute}
+                    ${animationTriggerAttribute}
+                    ${focusableAttribute}
+                    ${styleAttribute}
+                ></video>
+            `;
+        }
+
+        return `
+            <div
+                ${classAttribute}
+                ${animationTriggerAttribute}
+                ${focusableAttribute}
+                style="${styles ? `${styles};` : ""}min-height:180px;display:flex;align-items:center;justify-content:center;background:#111;color:#aaa;font-size:14px"
+            >
+                Video
+            </div>
+        `;
+    }
+
+    /* =====================================================
+       AUDIO
+    ===================================================== */
+
+    if (node.type === "audio") {
+        const source = node.audioSource || "";
+        const controls = node.audioControls ?? true;
+        const autoplay = node.audioAutoplay ?? false;
+        const muted = node.audioMuted ?? false;
+        const loop = node.audioLoop ?? false;
+        const preload = node.audioPreload || "metadata";
+        const volume = Math.min(1, Math.max(0, node.audioVolume ?? 1));
+
+        if (source) {
+            return `
+                <audio
+                    src="${escapeHtml(source)}"
+                    ${controls ? "controls" : ""}
+                    ${autoplay ? "autoplay" : ""}
+                    ${muted ? "muted" : ""}
+                    ${loop ? "loop" : ""}
+                    preload="${escapeHtml(preload)}"
+                    data-audio-volume="${volume}"
+                    ${classAttribute}
+                    ${animationTriggerAttribute}
+                    ${focusableAttribute}
+                    ${styleAttribute}
+                ></audio>
+            `;
+        }
+
+        return `
+            <div
+                ${classAttribute}
+                ${animationTriggerAttribute}
+                ${focusableAttribute}
+                style="${styles ? `${styles};` : ""}min-height:72px;display:flex;align-items:center;justify-content:center;background:#f3f4f6;color:#6b7280;font-size:14px"
+            >
+                Audio
+            </div>
         `;
     }
 
@@ -1047,7 +1155,41 @@ function createPreviewDocument(
 
             </style>
 
+            <script src="https://unpkg.com/lucide@1.40.0/dist/umd/lucide.min.js"></script>
+
             <script>
+                document.addEventListener("DOMContentLoaded", function () {
+                    if (!window.lucide) return;
+
+                    document.querySelectorAll("[data-lucide]").forEach(function (element) {
+                        var size = Number(element.getAttribute("data-icon-size")) || 32;
+                        var strokeWidth = Number(element.getAttribute("data-icon-stroke-width")) || 2;
+                        element.setAttribute("width", String(size));
+                        element.setAttribute("height", String(size));
+                        element.setAttribute("stroke-width", String(strokeWidth));
+                    });
+
+                    window.lucide.createIcons({
+                        attrs: {
+                            "stroke-width": 2,
+                        },
+                    });
+
+                    document.querySelectorAll("audio[data-audio-volume]").forEach(function (element) {
+                        var volume = Number(element.getAttribute("data-audio-volume"));
+                        if (!Number.isFinite(volume)) volume = 1;
+                        element.volume = Math.min(1, Math.max(0, volume));
+                    });
+
+                    document.querySelectorAll("svg[data-icon-size]").forEach(function (element) {
+                        var size = Number(element.getAttribute("data-icon-size")) || 32;
+                        var strokeWidth = Number(element.getAttribute("data-icon-stroke-width")) || 2;
+                        element.setAttribute("width", String(size));
+                        element.setAttribute("height", String(size));
+                        element.setAttribute("stroke-width", String(strokeWidth));
+                    });
+                });
+
                 document.addEventListener("click", function (event) {
                     var target = event.target;
 

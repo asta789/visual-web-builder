@@ -38,8 +38,21 @@ export type NodeType =
    | "navbar"
    | "text"
    | "button"
-   | "image";
+   | "image"
+   | "icon"
+   | "video"
+   | "audio";
 
+export type TextElementType =
+   | "p"
+   | "h1"
+   | "h2"
+   | "h3"
+   | "h4"
+   | "h5"
+   | "h6"
+   | "blockquote"
+   | "span";
 
 /* ========================================================= 
    PROJECT ASSETS 
@@ -365,6 +378,28 @@ export interface ProjectNode {
    children?: string[];
 
    content?: string;
+
+   videoSource?: string;
+   videoPoster?: string;
+   videoControls?: boolean;
+   videoAutoplay?: boolean;
+   videoMuted?: boolean;
+   videoLoop?: boolean;
+   videoPreload?: "auto" | "metadata" | "none";
+
+   audioSource?: string;
+   audioControls?: boolean;
+   audioAutoplay?: boolean;
+   audioMuted?: boolean;
+   audioLoop?: boolean;
+   audioPreload?: "auto" | "metadata" | "none";
+   audioVolume?: number;
+
+   iconName?: string;
+   iconSize?: number;
+   iconStrokeWidth?: number;
+
+   textElement?: TextElementType;
 
    assetId?: string;
 

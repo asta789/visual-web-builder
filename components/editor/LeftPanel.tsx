@@ -34,6 +34,18 @@ const components: {
             type: "navbar",
             label: "Navbar",
         },
+        {
+            type: "icon",
+            label: "Icon",
+        },
+        {
+            type: "video",
+            label: "Video",
+        },
+        {
+            type: "audio",
+            label: "Audio",
+        },
     ];
 
 export default function LeftPanel() {

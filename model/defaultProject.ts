@@ -51,6 +51,7 @@ export const defaultProject: Project = {
             name: "Heading",
             parentId: "node-section",
             content: "Build Your Website",
+            textElement: "h1",
             styles: {
                 fontSize: "48px",
                 fontWeight: "700",
@@ -65,6 +66,7 @@ export const defaultProject: Project = {
             name: "Description",
             parentId: "node-section",
             content: "Create beautiful websites visually.",
+            textElement: "p",
             styles: {
                 fontSize: "20px",
                 color: "#555555",

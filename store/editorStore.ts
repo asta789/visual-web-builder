@@ -452,6 +452,64 @@ function createNode(
                 },
             };
 
+        case "icon":
+            return {
+                ...baseNode,
+
+                name: "Icon",
+
+                iconName: "star",
+
+                iconSize: 32,
+
+                iconStrokeWidth: 2,
+
+                styles: {
+                    color: "#111111",
+                },
+            };
+
+        case "video":
+            return {
+                ...baseNode,
+
+                name: "Video",
+
+                videoControls: true,
+                videoAutoplay: false,
+                videoMuted: true,
+                videoLoop: false,
+                videoPreload: "metadata",
+
+                styles: {
+                    width: "100%",
+                    maxWidth: "100%",
+                    borderRadius: "8px",
+                    backgroundColor: "#000000",
+                },
+            };
+
+        case "audio":
+            return {
+                ...baseNode,
+
+                name: "Audio",
+
+                audioControls: true,
+                audioAutoplay: false,
+                audioMuted: false,
+                audioLoop: false,
+                audioPreload: "metadata",
+                audioVolume: 1,
+
+                styles: {
+                    width: "100%",
+                    minHeight: "72px",
+                    borderRadius: "8px",
+                    backgroundColor: "#f3f4f6",
+                },
+            };
+
         case "image":
             return {
                 ...baseNode,

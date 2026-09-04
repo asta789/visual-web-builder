@@ -10,10 +10,13 @@ import type {
     BreakpointId,
     LayoutMode,
     ProjectAsset,
+    TextElementType,
 } from "@/model/type";
 
 import { useEditorStore } from "@/store/editorStore";
 import TokenPicker from "./design-tokens/TokenPicker";
+import IconPicker from "./IconPicker";
+import type { BuilderIconName } from "./IconElement";
 
 /* =========================================================
    RIGHT PANEL PROPS
@@ -3304,6 +3307,12 @@ export default function RightPanel({
     const imageInputRef =
         useRef<HTMLInputElement>(null);
 
+    const videoInputRef =
+        useRef<HTMLInputElement>(null);
+
+    const audioInputRef =
+        useRef<HTMLInputElement>(null);
+
     const backgroundImageInputRef =
         useRef<HTMLInputElement>(null);
 
@@ -3446,6 +3455,42 @@ export default function RightPanel({
     }
 
     /* =====================================================
+       TEXT ELEMENT TYPE
+    ===================================================== */
+
+    function updateTextElement(
+        value: TextElementType
+    ) {
+        if (!node || node.type !== "text") {
+            return;
+        }
+
+        updateNode(
+            node.id,
+            {
+                textElement: value,
+            }
+        );
+    }
+
+    /* =====================================================
+       ICON UPDATE
+    ===================================================== */
+
+    function updateIcon(
+        property: "iconName" | "iconSize" | "iconStrokeWidth",
+        value: string | number
+    ) {
+        if (!node || node.type !== "icon") {
+            return;
+        }
+
+        updateNode(node.id, {
+            [property]: value,
+        });
+    }
+
+    /* =====================================================
        CONTENT UPDATE
     ===================================================== */
 
@@ -3526,6 +3571,134 @@ export default function RightPanel({
         reader.readAsDataURL(file);
 
         event.target.value = "";
+    }
+
+    /* =====================================================
+       VIDEO IMPORT
+    ===================================================== */
+
+    function handleVideoImport(
+        event: React.ChangeEvent<HTMLInputElement>
+    ) {
+        const file = event.target.files?.[0];
+
+        if (!file || !node || node.type !== "video") {
+            return;
+        }
+
+        if (!file.type.startsWith("video/")) {
+            window.alert("Please select a valid video file.");
+            event.target.value = "";
+            return;
+        }
+
+        const reader = new FileReader();
+
+        reader.onload = () => {
+            const result = reader.result;
+            if (typeof result !== "string") return;
+
+            updateNode(node.id, {
+                videoSource: result,
+            });
+        };
+
+        reader.onerror = () => {
+            window.alert("Unable to read the selected video.");
+        };
+
+        reader.readAsDataURL(file);
+        event.target.value = "";
+    }
+
+    function updateVideo(
+        property:
+            | "videoSource"
+            | "videoPoster"
+            | "videoControls"
+            | "videoAutoplay"
+            | "videoMuted"
+            | "videoLoop"
+            | "videoPreload",
+        value: string | boolean
+    ) {
+        if (!node || node.type !== "video") return;
+
+        updateNode(node.id, {
+            [property]: value,
+        });
+    }
+
+    function removeVideo() {
+        if (!node || node.type !== "video") return;
+
+        updateNode(node.id, {
+            videoSource: "",
+        });
+    }
+
+    /* =====================================================
+       AUDIO IMPORT
+    ===================================================== */
+
+    function handleAudioImport(
+        event: React.ChangeEvent<HTMLInputElement>
+    ) {
+        const file = event.target.files?.[0];
+
+        if (!file || !node || node.type !== "audio") {
+            return;
+        }
+
+        if (!file.type.startsWith("audio/")) {
+            window.alert("Please select a valid audio file.");
+            event.target.value = "";
+            return;
+        }
+
+        const reader = new FileReader();
+
+        reader.onload = () => {
+            const result = reader.result;
+            if (typeof result !== "string") return;
+
+            updateNode(node.id, {
+                audioSource: result,
+            });
+        };
+
+        reader.onerror = () => {
+            window.alert("Unable to read the selected audio.");
+        };
+
+        reader.readAsDataURL(file);
+        event.target.value = "";
+    }
+
+    function updateAudio(
+        property:
+            | "audioSource"
+            | "audioControls"
+            | "audioAutoplay"
+            | "audioMuted"
+            | "audioLoop"
+            | "audioPreload"
+            | "audioVolume",
+        value: string | boolean | number
+    ) {
+        if (!node || node.type !== "audio") return;
+
+        updateNode(node.id, {
+            [property]: value,
+        });
+    }
+
+    function removeAudio() {
+        if (!node || node.type !== "audio") return;
+
+        updateNode(node.id, {
+            audioSource: "",
+        });
     }
 
     /* =====================================================
@@ -3811,6 +3984,65 @@ export default function RightPanel({
                                     title="Content"
                                 >
 
+                                    {node.type === "text" && (
+                                        <div>
+                                            <label className="
+                                                mb-1.5
+                                                block
+                                                text-xs
+                                                font-medium
+                                                text-gray-500
+                                            ">
+                                                Text Element
+                                            </label>
+
+                                            <select
+                                                value={
+                                                    node.textElement ||
+                                                    "p"
+                                                }
+                                                onChange={(event) =>
+                                                    updateTextElement(
+                                                        event.target.value as TextElementType
+                                                    )
+                                                }
+                                                className="
+                                                    w-full
+                                                    rounded-md
+                                                    border
+                                                    bg-white
+                                                    px-2.5
+                                                    py-2
+                                                    text-sm
+                                                    outline-none
+                                                    focus:border-blue-500
+                                                    focus:ring-1
+                                                    focus:ring-blue-500
+                                                "
+                                            >
+                                                <option value="p">Paragraph</option>
+                                                <option value="h1">Heading 1</option>
+                                                <option value="h2">Heading 2</option>
+                                                <option value="h3">Heading 3</option>
+                                                <option value="h4">Heading 4</option>
+                                                <option value="h5">Heading 5</option>
+                                                <option value="h6">Heading 6</option>
+                                                <option value="blockquote">Quote</option>
+                                                <option value="span">Caption / Inline Text</option>
+                                            </select>
+
+                                            <p className="
+                                                mt-1.5
+                                                text-[11px]
+                                                leading-4
+                                                text-gray-400
+                                            ">
+                                                Changes the HTML meaning of this Text
+                                                element without changing its styling.
+                                            </p>
+                                        </div>
+                                    )}
+
                                     <div>
                                         <label className="
                                         mb-1.5
@@ -3858,6 +4090,328 @@ export default function RightPanel({
 
                                 </InspectorSection>
                             )}
+
+                        {/* ==================================================
+                            ICON
+                        ================================================== */}
+
+                        {node.type === "icon" && (
+                            <InspectorSection title="Icon">
+                                <IconPicker
+                                    value={(node.iconName || "star") as BuilderIconName}
+                                    onChange={(value) => updateIcon("iconName", value)}
+                                />
+
+                                <StyleInput
+                                    label="Icon Size"
+                                    type="number"
+                                    min="8"
+                                    max="256"
+                                    step="1"
+                                    value={String(node.iconSize || 32)}
+                                    onChange={(value) => {
+                                        const parsed = Number(value);
+                                        if (Number.isFinite(parsed)) {
+                                            updateIcon("iconSize", Math.max(8, Math.min(256, parsed)));
+                                        }
+                                    }}
+                                />
+
+                                <StyleInput
+                                    label="Stroke Width"
+                                    type="number"
+                                    min="0.5"
+                                    max="5"
+                                    step="0.5"
+                                    value={String(node.iconStrokeWidth || 2)}
+                                    onChange={(value) => {
+                                        const parsed = Number(value);
+                                        if (Number.isFinite(parsed)) {
+                                            updateIcon("iconStrokeWidth", Math.max(0.5, Math.min(5, parsed)));
+                                        }
+                                    }}
+                                />
+
+                                <ColorInput
+                                    label="Color"
+                                    value={getStyleValue("color")}
+                                    onChange={(value) => updateStyle("color", value)}
+                                />
+
+                                <DesignTokenColorControl
+                                    value={getStyleValue("color")}
+                                    onChange={(value) => updateStyle("color", value)}
+                                />
+                            </InspectorSection>
+                        )}
+
+                        {/* ==================================================
+                            VIDEO
+                        ================================================== */}
+
+                        {node.type === "video" && (
+                            <InspectorSection title="Video">
+                                <div>
+                                    <label className="mb-1.5 block text-xs font-medium text-gray-500">
+                                        Video File
+                                    </label>
+
+                                    <input
+                                        ref={videoInputRef}
+                                        type="file"
+                                        accept="video/*"
+                                        onChange={handleVideoImport}
+                                        className="hidden"
+                                    />
+
+                                    <button
+                                        type="button"
+                                        onClick={() => videoInputRef.current?.click()}
+                                        className="w-full rounded-md border border-blue-500 bg-blue-50 px-3 py-2.5 text-sm font-medium text-blue-600 transition hover:bg-blue-100"
+                                    >
+                                        Import Video from PC
+                                    </button>
+                                </div>
+
+                                <StyleInput
+                                    label="Video Source URL"
+                                    value={node.videoSource?.startsWith("data:") ? "" : node.videoSource}
+                                    placeholder="https://example.com/video.mp4"
+                                    onChange={(value) => updateVideo("videoSource", value)}
+                                />
+
+                                {node.videoSource && (
+                                    <div className="overflow-hidden rounded-md border bg-gray-50">
+                                        <video
+                                            src={node.videoSource}
+                                            poster={node.videoPoster || undefined}
+                                            controls
+                                            muted
+                                            className="max-h-48 w-full object-contain"
+                                        />
+                                    </div>
+                                )}
+
+                                <StyleInput
+                                    label="Poster Image URL"
+                                    value={node.videoPoster}
+                                    placeholder="https://example.com/poster.jpg"
+                                    onChange={(value) => updateVideo("videoPoster", value)}
+                                />
+
+                                <StyleSelect
+                                    label="Controls"
+                                    value={node.videoControls === false ? "false" : "true"}
+                                    options={[
+                                        { label: "Show", value: "true" },
+                                        { label: "Hide", value: "false" },
+                                    ]}
+                                    onChange={(value) => updateVideo("videoControls", value === "true")}
+                                />
+
+                                <StyleSelect
+                                    label="Autoplay"
+                                    value={node.videoAutoplay ? "true" : "false"}
+                                    options={[
+                                        { label: "Off", value: "false" },
+                                        { label: "On", value: "true" },
+                                    ]}
+                                    onChange={(value) => updateVideo("videoAutoplay", value === "true")}
+                                />
+
+                                <StyleSelect
+                                    label="Muted"
+                                    value={node.videoMuted === false ? "false" : "true"}
+                                    options={[
+                                        { label: "On", value: "true" },
+                                        { label: "Off", value: "false" },
+                                    ]}
+                                    onChange={(value) => updateVideo("videoMuted", value === "true")}
+                                />
+
+                                <StyleSelect
+                                    label="Loop"
+                                    value={node.videoLoop ? "true" : "false"}
+                                    options={[
+                                        { label: "Off", value: "false" },
+                                        { label: "On", value: "true" },
+                                    ]}
+                                    onChange={(value) => updateVideo("videoLoop", value === "true")}
+                                />
+
+                                <StyleSelect
+                                    label="Preload"
+                                    value={node.videoPreload || "metadata"}
+                                    options={[
+                                        { label: "Metadata", value: "metadata" },
+                                        { label: "Auto", value: "auto" },
+                                        { label: "None", value: "none" },
+                                    ]}
+                                    onChange={(value) => updateVideo("videoPreload", value)}
+                                />
+
+                                <StyleSelect
+                                    label="Object Fit"
+                                    value={getStyleValue("objectFit")}
+                                    options={[
+                                        { label: "Default", value: "" },
+                                        { label: "Contain", value: "contain" },
+                                        { label: "Cover", value: "cover" },
+                                        { label: "Fill", value: "fill" },
+                                        { label: "None", value: "none" },
+                                    ]}
+                                    onChange={(value) => updateStyle("objectFit", value)}
+                                />
+
+                                <StyleSelect
+                                    label="Object Position"
+                                    value={getStyleValue("objectPosition")}
+                                    options={[
+                                        { label: "Default", value: "" },
+                                        { label: "Center", value: "center" },
+                                        { label: "Top", value: "center top" },
+                                        { label: "Bottom", value: "center bottom" },
+                                        { label: "Left", value: "left center" },
+                                        { label: "Right", value: "right center" },
+                                    ]}
+                                    onChange={(value) => updateStyle("objectPosition", value)}
+                                />
+
+                                {node.videoSource && (
+                                    <button
+                                        type="button"
+                                        onClick={removeVideo}
+                                        className="w-full rounded-md border border-red-200 px-3 py-2 text-sm font-medium text-red-500 transition hover:bg-red-50"
+                                    >
+                                        Remove Video
+                                    </button>
+                                )}
+                            </InspectorSection>
+                        )}
+
+                        {/* ==================================================
+                            AUDIO
+                        ================================================== */}
+
+                        {node.type === "audio" && (
+                            <InspectorSection title="Audio">
+                                <div>
+                                    <label className="mb-1.5 block text-xs font-medium text-gray-500">
+                                        Audio File
+                                    </label>
+
+                                    <input
+                                        ref={audioInputRef}
+                                        type="file"
+                                        accept="audio/*"
+                                        onChange={handleAudioImport}
+                                        className="hidden"
+                                    />
+
+                                    <button
+                                        type="button"
+                                        onClick={() => audioInputRef.current?.click()}
+                                        className="w-full rounded-md border border-blue-500 bg-blue-50 px-3 py-2.5 text-sm font-medium text-blue-600 transition hover:bg-blue-100"
+                                    >
+                                        Import Audio from PC
+                                    </button>
+                                </div>
+
+                                <StyleInput
+                                    label="Audio Source URL"
+                                    value={node.audioSource?.startsWith("data:") ? "" : node.audioSource}
+                                    placeholder="https://example.com/audio.mp3"
+                                    onChange={(value) => updateAudio("audioSource", value)}
+                                />
+
+                                {node.audioSource && (
+                                    <div className="rounded-md border bg-gray-50 p-2">
+                                        <audio
+                                            src={node.audioSource}
+                                            controls
+                                            className="w-full"
+                                        />
+                                    </div>
+                                )}
+
+                                <StyleSelect
+                                    label="Controls"
+                                    value={node.audioControls === false ? "false" : "true"}
+                                    options={[
+                                        { label: "Show", value: "true" },
+                                        { label: "Hide", value: "false" },
+                                    ]}
+                                    onChange={(value) => updateAudio("audioControls", value === "true")}
+                                />
+
+                                <StyleSelect
+                                    label="Autoplay"
+                                    value={node.audioAutoplay ? "true" : "false"}
+                                    options={[
+                                        { label: "Off", value: "false" },
+                                        { label: "On", value: "true" },
+                                    ]}
+                                    onChange={(value) => updateAudio("audioAutoplay", value === "true")}
+                                />
+
+                                <StyleSelect
+                                    label="Muted"
+                                    value={node.audioMuted ? "true" : "false"}
+                                    options={[
+                                        { label: "Off", value: "false" },
+                                        { label: "On", value: "true" },
+                                    ]}
+                                    onChange={(value) => updateAudio("audioMuted", value === "true")}
+                                />
+
+                                <StyleInput
+                                    label="Volume"
+                                    type="number"
+                                    min="0"
+                                    max="100"
+                                    step="1"
+                                    value={String(Math.round((node.audioVolume ?? 1) * 100))}
+                                    onChange={(value) => {
+                                        const parsed = Number(value);
+                                        const safe = Number.isFinite(parsed)
+                                            ? Math.min(100, Math.max(0, parsed))
+                                            : 100;
+                                        updateAudio("audioVolume", safe / 100);
+                                    }}
+                                />
+
+                                <StyleSelect
+                                    label="Loop"
+                                    value={node.audioLoop ? "true" : "false"}
+                                    options={[
+                                        { label: "Off", value: "false" },
+                                        { label: "On", value: "true" },
+                                    ]}
+                                    onChange={(value) => updateAudio("audioLoop", value === "true")}
+                                />
+
+                                <StyleSelect
+                                    label="Preload"
+                                    value={node.audioPreload || "metadata"}
+                                    options={[
+                                        { label: "Metadata", value: "metadata" },
+                                        { label: "Auto", value: "auto" },
+                                        { label: "None", value: "none" },
+                                    ]}
+                                    onChange={(value) => updateAudio("audioPreload", value)}
+                                />
+
+                                {node.audioSource && (
+                                    <button
+                                        type="button"
+                                        onClick={removeAudio}
+                                        className="w-full rounded-md border border-red-200 px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-50"
+                                    >
+                                        Remove Audio
+                                    </button>
+                                )}
+                            </InspectorSection>
+                        )}
 
                         {/* ==================================================
                             IMAGE
@@ -4084,6 +4638,64 @@ export default function RightPanel({
                                         )
                                     }
                                 />
+                            </InspectorSection>
+                        )}
+
+                        {/* ==================================================
+                            BUTTON LINK
+                        ================================================== */}
+
+                        {node.type === "button" && (
+                            <InspectorSection
+                                title="Link"
+                            >
+
+                                <StyleInput
+                                    label="Target URL"
+                                    value={
+                                        node.styles?.href
+                                    }
+                                    placeholder="https://example.com"
+                                    onChange={(value) =>
+                                        updateBaseStyle(
+                                            "href",
+                                            value
+                                        )
+                                    }
+                                />
+
+                                <StyleSelect
+                                    label="Open In"
+                                    value={
+                                        node.styles?.target ||
+                                        "_self"
+                                    }
+                                    options={[
+                                        {
+                                            label: "Same Window",
+                                            value: "_self",
+                                        },
+                                        {
+                                            label: "New Tab",
+                                            value: "_blank",
+                                        },
+                                    ]}
+                                    onChange={(value) =>
+                                        updateBaseStyle(
+                                            "target",
+                                            value
+                                        )
+                                    }
+                                />
+
+                                <p className="
+                                    text-[11px]
+                                    leading-4
+                                    text-gray-400
+                                ">
+                                    Leave the URL empty if this button should not navigate anywhere.
+                                </p>
+
                             </InspectorSection>
                         )}
 
