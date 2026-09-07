@@ -41,7 +41,18 @@ export type NodeType =
    | "image"
    | "icon"
    | "video"
-   | "audio";
+   | "audio"
+   | "divider"
+   | "list"
+   | "table"
+   | "input"
+   | "textarea"
+   | "select"
+   | "checkbox"
+   | "radio"
+   | "switch"
+   | "card"
+   | "accordion";
 
 export type TextElementType =
    | "p"
@@ -377,7 +388,85 @@ export interface ProjectNode {
 
    children?: string[];
 
+   accordionRole?: "root" | "item" | "header" | "content";
+   accordionAllowMultiple?: boolean;
+   accordionDefaultOpen?: number;
+   /** Editor-only mode: false = edit composite root, true = edit its inner nodes. */
+   compositeEditingLocked?: boolean;
+
    content?: string;
+
+
+
+   textareaPlaceholder?: string;
+   textareaValue?: string;
+   textareaName?: string;
+   textareaRequired?: boolean;
+   textareaDisabled?: boolean;
+   textareaReadOnly?: boolean;
+   textareaMinLength?: number;
+   textareaMaxLength?: number;
+   textareaRows?: number;
+   textareaResize?: "none" | "horizontal" | "vertical" | "both";
+
+   selectOptions?: {
+      label: string;
+      value: string;
+   }[];
+   selectValue?: string;
+   selectName?: string;
+   selectPlaceholder?: string;
+   selectRequired?: boolean;
+   selectDisabled?: boolean;
+   selectMultiple?: boolean;
+
+
+
+   inputType?:
+   | "text"
+   | "email"
+   | "password"
+   | "number"
+   | "tel"
+   | "url"
+   | "search"
+   | "date"
+   | "time";
+   inputPlaceholder?: string;
+   inputValue?: string;
+   inputName?: string;
+   inputRequired?: boolean;
+   inputDisabled?: boolean;
+   inputReadOnly?: boolean;
+   inputMin?: string;
+   inputMax?: string;
+   inputStep?: string;
+
+   checkboxLabel?: string;
+   checkboxValue?: string;
+   checkboxName?: string;
+   checkboxChecked?: boolean;
+   checkboxRequired?: boolean;
+   checkboxDisabled?: boolean;
+
+   radioOptions?: {
+      label: string;
+      value: string;
+      checked?: boolean;
+   }[];
+   radioName?: string;
+   radioRequired?: boolean;
+   radioDisabled?: boolean;
+
+   buttonType?: "button" | "submit" | "reset";
+   buttonDisabled?: boolean;
+
+   switchLabel?: string;
+   switchValue?: string;
+   switchName?: string;
+   switchChecked?: boolean;
+   switchRequired?: boolean;
+   switchDisabled?: boolean;
 
    videoSource?: string;
    videoPoster?: string;
@@ -394,6 +483,39 @@ export interface ProjectNode {
    audioLoop?: boolean;
    audioPreload?: "auto" | "metadata" | "none";
    audioVolume?: number;
+
+   dividerOrientation?: "horizontal" | "vertical";
+   dividerThickness?: number;
+   dividerStyle?: "solid" | "dashed" | "dotted" | "double";
+   dividerColor?: string;
+   dividerAlign?: "left" | "center" | "right" | "top" | "bottom";
+
+   listItems?: string[];
+   listOrdered?: boolean;
+   listMarkerStyle?:
+   | "disc"
+   | "circle"
+   | "square"
+   | "decimal"
+   | "lower-alpha"
+   | "upper-alpha"
+   | "lower-roman"
+   | "upper-roman"
+   | "none";
+   listStart?: number;
+   listItemGap?: number;
+
+   tableData?: string[][];
+   tableHeader?: boolean;
+   tableStriped?: boolean;
+   tableBorderWidth?: number;
+   tableBorderStyle?: "solid" | "dashed" | "dotted" | "double" | "none";
+   tableBorderColor?: string;
+   tableCellPadding?: number;
+   tableCellAlign?: "left" | "center" | "right";
+   tableCellVerticalAlign?: "top" | "middle" | "bottom";
+   tableColumnWidths?: string[];
+   tableRowHeight?: number;
 
    iconName?: string;
    iconSize?: number;

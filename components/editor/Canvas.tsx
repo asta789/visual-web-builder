@@ -19,11 +19,27 @@ import type {
 import IconElement, { type BuilderIconName } from "./IconElement";
 import VideoElement from "./VideoElement";
 import AudioElement from "./AudioElement";
+import DividerElement from "./DividerElement";
+import ListElement, { type BuilderListMarkerStyle } from "./ListElement";
+import TableElement from "./TableElement";
+import InputElement, { type BuilderInputType } from "./InputElement";
+import TextareaElement, { type BuilderTextareaResize } from "./TextareaElement";
+import SelectElement from "./SelectElement";
+import CheckboxElement from "./CheckboxElement";
+import RadioElement from "./RadioElements";
+import SwitchElement from "./SwitchElement";
 
 import { useEditorStore } from "@/store/editorStore";
 import { createTokenVariableMap } from "./design-tokens/tokenUtils";
 import { mergeReusableStyleClasses } from "./reusable-styles/styleClassUtils";
+import {
+    getCompositeEditingContext,
+} from "./composite/CompositeEditingLock";
 import EditorOverlay from "./EditorOverlay";
+import {
+    getAccordionInitialOpenIds,
+    toggleAccordionItemIds,
+} from "./accordion/AccordionModule";
 
 /* =========================================================
    ANIMATION KEYFRAMES
@@ -336,6 +352,9 @@ interface NodeDragState {
 
     parentId: string | null;
 
+    /** The actual node moved by this canvas gesture. */
+    dragNodeId: string;
+
     /*
      * Used only by Grid dragging.
      *
@@ -398,6 +417,12 @@ function RenderNode({
                 state.updateNodeStyles
         );
 
+    const updateNode =
+        useEditorStore(
+            (state) =>
+                state.updateNode
+        );
+
     const moveNode =
         useEditorStore(
             (state) =>
@@ -424,6 +449,32 @@ function RenderNode({
 
     const node =
         project.nodes[nodeId];
+
+    const compositeEditing = getCompositeEditingContext(
+        node,
+        project.nodes,
+    );
+
+    const [
+        openAccordionItems,
+        setOpenAccordionItems,
+    ] = useState<string[]>(() =>
+        node?.type === "accordion"
+            ? getAccordionInitialOpenIds(node)
+            : [],
+    );
+
+    useEffect(() => {
+        if (node?.type !== "accordion") return;
+
+        setOpenAccordionItems(getAccordionInitialOpenIds(node));
+    }, [
+        node?.type,
+        node?.id,
+        node?.accordionDefaultOpen,
+        node?.accordionAllowMultiple,
+        node?.children,
+    ]);
 
     const [
         isHovered,
@@ -609,15 +660,12 @@ function RenderNode({
     ===================================================== */
 
     function getRenderedPositionRelativeToParent(
-        element: HTMLElement
+        element: HTMLElement,
+        parentId: string,
     ) {
-        if (!node.parentId) {
-            return null;
-        }
-
         const parentElement =
             document.querySelector(
-                `[data-node-id="${node.parentId}"]`
+                `[data-node-id="${parentId}"]`
             ) as HTMLElement | null;
 
         if (!parentElement) {
@@ -772,15 +820,24 @@ function RenderNode({
             }
             | null = null;
 
+        const dragElement =
+            document.querySelector(
+                `[data-node-id="${state.dragNodeId}"]`
+            ) as HTMLElement | null;
+
+        const positionElement =
+            dragElement ?? event.currentTarget;
+
         if (state.parentId) {
             renderedPosition =
                 getRenderedPositionRelativeToParent(
-                    event.currentTarget
+                    positionElement,
+                    state.parentId,
                 );
         } else {
             renderedPosition =
                 getRenderedPositionRelativeToViewport(
-                    event.currentTarget
+                    positionElement
                 );
         }
 
@@ -845,7 +902,7 @@ function RenderNode({
          * to absolute positioning.
          */
         updateNodeStyles(
-            node.id,
+            state.dragNodeId,
             {
                 position:
                     "absolute",
@@ -943,7 +1000,7 @@ function RenderNode({
                 .filter(
                     (childId) =>
                         childId !==
-                        node.id
+                        state.dragNodeId
                 )
                 .map(
                     (childId) => {
@@ -989,7 +1046,7 @@ function RenderNode({
 
         const draggedIndex =
             children.indexOf(
-                node.id
+                state.dragNodeId
             );
 
         /*
@@ -1107,7 +1164,7 @@ function RenderNode({
         const siblingIds =
             children.filter(
                 (childId) =>
-                    childId !== node.id
+                    childId !== state.dragNodeId
             );
 
         if (
@@ -1373,7 +1430,7 @@ function RenderNode({
 
         const currentIndex =
             children.indexOf(
-                node.id
+                state.dragNodeId
             );
 
         if (
@@ -1412,7 +1469,7 @@ function RenderNode({
             children.filter(
                 (childId) =>
                     childId !==
-                    node.id
+                    state.dragNodeId
             );
 
         /*
@@ -1485,7 +1542,7 @@ function RenderNode({
          * CSS Grid remains responsible for placement.
          */
         moveNode(
-            node.id,
+            state.dragNodeId,
             parent.id,
             clampedTarget
         );
@@ -1586,7 +1643,7 @@ function RenderNode({
             targetIndex;
 
         moveNode(
-            node.id,
+            state.dragNodeId,
             state.parentId,
             targetIndex
         );
@@ -1703,7 +1760,13 @@ function RenderNode({
             return;
         }
 
+        if (!compositeEditing.isCanvasInteractionEnabled) {
+            return;
+        }
+
         event.stopPropagation();
+
+        const interactionNode = node;
 
         const isMultiSelect =
             event.ctrlKey ||
@@ -1728,7 +1791,7 @@ function RenderNode({
         isMultiSelectGesture.current = false;
 
         selectNode(
-            node.id
+            interactionNode.id
         );
 
         const viewportElement =
@@ -1744,7 +1807,19 @@ function RenderNode({
             getEditorScale();
 
         const position =
-            getCurrentPosition();
+            interactionNode.id === node.id
+                ? getCurrentPosition()
+                : (() => {
+                    const styles = getResolvedStyles(
+                        interactionNode,
+                        viewport,
+                        project.reusableStyles,
+                    );
+                    return {
+                        left: parseFloat(styles.left ?? "0") || 0,
+                        top: parseFloat(styles.top ?? "0") || 0,
+                    };
+                })();
 
         /*
          * Determine the layout mode from the parent.
@@ -1756,11 +1831,11 @@ function RenderNode({
             layoutMode;
 
         if (
-            node.parentId
+            interactionNode.parentId
         ) {
             const parent =
                 project.nodes[
-                node.parentId
+                interactionNode.parentId
                 ];
 
             if (parent) {
@@ -1802,8 +1877,10 @@ function RenderNode({
                 dragLayoutMode,
 
             parentId:
-                node.parentId ??
+                interactionNode.parentId ??
                 null,
+
+            dragNodeId: interactionNode.id,
 
             lastTargetIndex:
                 null,
@@ -1890,7 +1967,7 @@ function RenderNode({
             deltaY;
 
         updateNodeStyles(
-            node.id,
+            state.dragNodeId,
             {
                 position:
                     "absolute",
@@ -2121,6 +2198,10 @@ function RenderNode({
     function handleClick(
         event: MouseEvent
     ) {
+        if (!compositeEditing.isCanvasInteractionEnabled) {
+            return;
+        }
+
         event.stopPropagation();
 
         if (isMultiSelectGesture.current) {
@@ -2412,44 +2493,56 @@ function RenderNode({
             resolvedStyles.borderColor,
 
         borderTopStyle:
-            resolvedStyles.borderTopStyle as
+            (resolvedStyles.borderTopStyle ??
+                resolvedStyles.borderStyle) as
             CSSProperties["borderTopStyle"],
 
         borderRightStyle:
-            resolvedStyles.borderRightStyle as
+            (resolvedStyles.borderRightStyle ??
+                resolvedStyles.borderStyle) as
             CSSProperties["borderRightStyle"],
 
         borderBottomStyle:
-            resolvedStyles.borderBottomStyle as
+            (resolvedStyles.borderBottomStyle ??
+                resolvedStyles.borderStyle) as
             CSSProperties["borderBottomStyle"],
 
         borderLeftStyle:
-            resolvedStyles.borderLeftStyle as
+            (resolvedStyles.borderLeftStyle ??
+                resolvedStyles.borderStyle) as
             CSSProperties["borderLeftStyle"],
 
         borderTopWidth:
-            resolvedStyles.borderTopWidth,
+            resolvedStyles.borderTopWidth ??
+            resolvedStyles.borderWidth,
 
         borderRightWidth:
-            resolvedStyles.borderRightWidth,
+            resolvedStyles.borderRightWidth ??
+            resolvedStyles.borderWidth,
 
         borderBottomWidth:
-            resolvedStyles.borderBottomWidth,
+            resolvedStyles.borderBottomWidth ??
+            resolvedStyles.borderWidth,
 
         borderLeftWidth:
-            resolvedStyles.borderLeftWidth,
+            resolvedStyles.borderLeftWidth ??
+            resolvedStyles.borderWidth,
 
         borderTopColor:
-            resolvedStyles.borderTopColor,
+            resolvedStyles.borderTopColor ??
+            resolvedStyles.borderColor,
 
         borderRightColor:
-            resolvedStyles.borderRightColor,
+            resolvedStyles.borderRightColor ??
+            resolvedStyles.borderColor,
 
         borderBottomColor:
-            resolvedStyles.borderBottomColor,
+            resolvedStyles.borderBottomColor ??
+            resolvedStyles.borderColor,
 
         borderLeftColor:
-            resolvedStyles.borderLeftColor,
+            resolvedStyles.borderLeftColor ??
+            resolvedStyles.borderColor,
 
         opacity:
             resolvedStyles.opacity,
@@ -2481,10 +2574,11 @@ function RenderNode({
             CSSProperties["overflow"],
 
         cursor:
-            isDragActive
-                ? "grabbing"
-                : resolvedStyles.cursor ||
-                "grab",
+            !compositeEditing.isCanvasInteractionEnabled
+                ? "default"
+                : isDragActive
+                    ? "grabbing"
+                    : resolvedStyles.cursor || "grab",
 
         objectFit:
             resolvedStyles.objectFit as
@@ -2502,41 +2596,22 @@ function RenderNode({
     ===================================================== */
 
     const interactionProps = {
-        "data-node-id":
-            node.id,
-
-        onClick:
-            handleClick,
-
-        onPointerDown:
-            handlePointerDown,
-
-        onPointerMove:
-            handlePointerMove,
-
-        onPointerUp:
-            handlePointerUp,
-
-        onPointerCancel:
-            handlePointerCancel,
-
-        onMouseEnter:
-            handleMouseEnter,
-
-        onMouseLeave:
-            handleMouseLeave,
-
-        onFocus:
-            handleFocus,
-
-        onBlur:
-            handleBlur,
-
-        tabIndex:
-            animationTrigger ===
-                "focus"
-                ? 0
-                : undefined,
+        "data-node-id": node.id,
+        "data-accordion-role": node.accordionRole,
+        ...(compositeEditing.isCanvasInteractionEnabled
+            ? {
+                onClick: handleClick,
+                onPointerDown: handlePointerDown,
+                onPointerMove: handlePointerMove,
+                onPointerUp: handlePointerUp,
+                onPointerCancel: handlePointerCancel,
+                onMouseEnter: handleMouseEnter,
+                onMouseLeave: handleMouseLeave,
+                onFocus: handleFocus,
+                onBlur: handleBlur,
+                tabIndex: animationTrigger === "focus" ? 0 : undefined,
+            }
+            : {}),
     };
 
     /* =====================================================
@@ -2549,7 +2624,8 @@ function RenderNode({
             : "";
 
     const selectionClass =
-        selectedNodeIds.includes(node.id)
+        compositeEditing.isCanvasInteractionEnabled &&
+            selectedNodeIds.includes(node.id)
             ? "outline outline-2 outline-blue-500"
             : "";
 
@@ -2569,8 +2645,12 @@ function RenderNode({
         node.type ===
         "text"
     ) {
+        const TextTag =
+            node.textElement ||
+            "div";
+
         return (
-            <div
+            <TextTag
                 {...interactionProps}
                 style={style}
                 className={
@@ -2578,7 +2658,7 @@ function RenderNode({
                 }
             >
                 {node.content}
-            </div>
+            </TextTag>
         );
     }
 
@@ -2648,6 +2728,370 @@ function RenderNode({
     }
 
     /* =====================================================
+       DIVIDER
+    ===================================================== */
+
+    if (node.type === "divider") {
+        return (
+            <DividerElement
+                {...interactionProps}
+                orientation={node.dividerOrientation ?? "horizontal"}
+                thickness={node.dividerThickness ?? 2}
+                lineStyle={node.dividerStyle ?? "solid"}
+                color={node.dividerColor ?? "#d1d5db"}
+                align={node.dividerAlign ?? "center"}
+                style={style}
+                className={interactionClass}
+            />
+        );
+    }
+
+    /* =====================================================
+       LIST
+    ===================================================== */
+
+    if (node.type === "list") {
+        return (
+            <ListElement
+                {...interactionProps}
+                items={node.listItems}
+                ordered={node.listOrdered ?? false}
+                markerStyle={
+                    node.listMarkerStyle as BuilderListMarkerStyle | undefined
+                }
+                start={node.listStart ?? 1}
+                itemGap={node.listItemGap ?? 8}
+                style={style}
+                className={interactionClass}
+            />
+        );
+    }
+
+    /* =====================================================
+       TABLE
+    ===================================================== */
+
+    if (node.type === "table") {
+        return (
+            <TableElement
+                {...interactionProps}
+                data={node.tableData}
+                header={node.tableHeader ?? true}
+                striped={node.tableStriped ?? false}
+                borderWidth={node.tableBorderWidth ?? 1}
+                borderStyle={node.tableBorderStyle ?? "solid"}
+                borderColor={node.tableBorderColor ?? "#d1d5db"}
+                cellPadding={node.tableCellPadding ?? 10}
+                cellAlign={node.tableCellAlign ?? "left"}
+                cellVerticalAlign={node.tableCellVerticalAlign ?? "middle"}
+                columnWidths={node.tableColumnWidths ?? []}
+                rowHeight={node.tableRowHeight ?? 0}
+                style={style}
+                className={interactionClass}
+            />
+        );
+    }
+
+    /* =====================================================
+       INPUT
+    ===================================================== */
+
+    if (node.type === "input") {
+        return (
+            <div
+                {...interactionProps}
+                style={{
+                    ...style,
+                    boxSizing: "border-box",
+                }}
+                className={interactionClass}
+            >
+                <InputElement
+                    inputType={
+                        (node.inputType ?? "text") as BuilderInputType
+                    }
+                    placeholder={node.inputPlaceholder ?? ""}
+                    value={node.inputValue ?? ""}
+                    name={node.inputName ?? undefined}
+                    required={node.inputRequired ?? false}
+                    disabled={node.inputDisabled ?? false}
+                    readOnly={node.inputReadOnly ?? false}
+                    min={
+                        node.inputType === "number"
+                            ? node.inputMin || undefined
+                            : undefined
+                    }
+                    max={
+                        node.inputType === "number"
+                            ? node.inputMax || undefined
+                            : undefined
+                    }
+                    step={
+                        node.inputType === "number"
+                            ? node.inputStep || undefined
+                            : undefined
+                    }
+                    style={{
+                        width: "100%",
+                        height: "100%",
+                        minWidth: 0,
+                        minHeight: 0,
+                        boxSizing: "border-box",
+                        fontFamily: style.fontFamily,
+                        fontSize: style.fontSize,
+                        fontWeight: style.fontWeight,
+                        lineHeight: style.lineHeight,
+                        letterSpacing: style.letterSpacing,
+                        textAlign: style.textAlign,
+                        textTransform: style.textTransform,
+                        textDecoration: style.textDecoration,
+                        color: style.color,
+                        backgroundColor: style.backgroundColor,
+                        backgroundImage: style.backgroundImage,
+                        backgroundSize: style.backgroundSize,
+                        backgroundPosition: style.backgroundPosition,
+                        backgroundRepeat: style.backgroundRepeat,
+                        backgroundAttachment: style.backgroundAttachment,
+                        borderRadius: style.borderRadius,
+                        // Use per-side border properties for Textarea instead of
+                        // mixing borderStyle shorthand with side-specific styles.
+                        // React warns when a shorthand and a conflicting side
+                        // property are updated together across renders.
+                        borderTopStyle: (style.borderTopStyle ?? style.borderStyle) as CSSProperties["borderTopStyle"],
+                        borderRightStyle: (style.borderRightStyle ?? style.borderStyle) as CSSProperties["borderRightStyle"],
+                        borderBottomStyle: (style.borderBottomStyle ?? style.borderStyle) as CSSProperties["borderBottomStyle"],
+                        borderLeftStyle: (style.borderLeftStyle ?? style.borderStyle) as CSSProperties["borderLeftStyle"],
+                        borderTopWidth: style.borderTopWidth,
+                        borderRightWidth: style.borderRightWidth,
+                        borderBottomWidth: style.borderBottomWidth,
+                        borderLeftWidth: style.borderLeftWidth,
+                        borderTopColor: style.borderTopColor,
+                        borderRightColor: style.borderRightColor,
+                        borderBottomColor: style.borderBottomColor,
+                        borderLeftColor: style.borderLeftColor,
+                        boxShadow: style.boxShadow,
+                        opacity: style.opacity,
+                        filter: style.filter,
+                        backdropFilter: style.backdropFilter,
+                        paddingTop: style.paddingTop,
+                        paddingRight: style.paddingRight,
+                        paddingBottom: style.paddingBottom,
+                        paddingLeft: style.paddingLeft,
+                        cursor: style.cursor,
+                        userSelect: "none",
+                        pointerEvents: "none",
+                    }}
+                    className="h-full w-full"
+                />
+            </div>
+        );
+    }
+
+    /* =====================================================
+       TEXTAREA
+    ===================================================== */
+
+    if (node.type === "textarea") {
+        /*
+         * The outer interaction wrapper must NOT receive the node's border.
+         * It already renders the selection/hover outline, while the native
+         * textarea is responsible for the actual visual border.
+         *
+         * Keeping the node border on both elements creates two visible
+         * borders in the editor even though Preview only renders one.
+         */
+        const textareaWrapperStyle: CSSProperties = {
+            ...style,
+
+            // The wrapper is an editor-only interaction layer.
+            // Keep node geometry (including margin) here, but do NOT let
+            // the wrapper render the textarea's visual box-model properties.
+            // Padding belongs only to the native textarea below.
+            borderStyle: undefined,
+            borderWidth: undefined,
+            borderColor: undefined,
+            borderTopStyle: undefined,
+            borderRightStyle: undefined,
+            borderBottomStyle: undefined,
+            borderLeftStyle: undefined,
+            borderTopWidth: undefined,
+            borderRightWidth: undefined,
+            borderBottomWidth: undefined,
+            borderLeftWidth: undefined,
+            borderTopColor: undefined,
+            borderRightColor: undefined,
+            borderBottomColor: undefined,
+            borderLeftColor: undefined,
+
+            // Prevent padding from being applied twice in Canvas.
+            // Preview applies padding directly to the textarea itself.
+            paddingTop: undefined,
+            paddingRight: undefined,
+            paddingBottom: undefined,
+            paddingLeft: undefined,
+
+            boxSizing: "border-box",
+        };
+
+        return (
+            <div
+                {...interactionProps}
+                style={textareaWrapperStyle}
+                className={interactionClass}
+            >
+                <TextareaElement
+                    placeholder={node.textareaPlaceholder ?? ""}
+                    defaultValue={node.textareaValue ?? ""}
+                    name={node.textareaName || undefined}
+                    required={node.textareaRequired ?? false}
+                    disabled={node.textareaDisabled ?? false}
+                    readOnly={node.textareaReadOnly ?? false}
+                    minLength={node.textareaMinLength && node.textareaMinLength > 0 ? node.textareaMinLength : undefined}
+                    maxLength={node.textareaMaxLength && node.textareaMaxLength > 0 ? node.textareaMaxLength : undefined}
+                    rows={node.textareaRows ?? 5}
+                    resize={(node.textareaResize ?? "vertical") as BuilderTextareaResize}
+                    style={{
+                        width: "100%",
+                        height: "100%",
+                        minWidth: 0,
+                        minHeight: 0,
+                        boxSizing: "border-box",
+                        fontFamily: style.fontFamily,
+                        fontSize: style.fontSize,
+                        fontWeight: style.fontWeight,
+                        lineHeight: style.lineHeight,
+                        letterSpacing: style.letterSpacing,
+                        textAlign: style.textAlign,
+                        textTransform: style.textTransform,
+                        textDecoration: style.textDecoration,
+                        color: style.color,
+                        backgroundColor: style.backgroundColor,
+                        backgroundImage: style.backgroundImage,
+                        backgroundSize: style.backgroundSize,
+                        backgroundPosition: style.backgroundPosition,
+                        backgroundRepeat: style.backgroundRepeat,
+                        backgroundAttachment: style.backgroundAttachment,
+                        borderRadius: style.borderRadius,
+
+                        // Only per-side border properties are passed to the
+                        // native textarea. Never pass borderStyle/borderWidth/
+                        // borderColor alongside these properties.
+                        borderTopStyle: (style.borderTopStyle ?? style.borderStyle) as CSSProperties["borderTopStyle"],
+                        borderRightStyle: (style.borderRightStyle ?? style.borderStyle) as CSSProperties["borderRightStyle"],
+                        borderBottomStyle: (style.borderBottomStyle ?? style.borderStyle) as CSSProperties["borderBottomStyle"],
+                        borderLeftStyle: (style.borderLeftStyle ?? style.borderStyle) as CSSProperties["borderLeftStyle"],
+                        borderTopWidth: style.borderTopWidth ?? style.borderWidth,
+                        borderRightWidth: style.borderRightWidth ?? style.borderWidth,
+                        borderBottomWidth: style.borderBottomWidth ?? style.borderWidth,
+                        borderLeftWidth: style.borderLeftWidth ?? style.borderWidth,
+                        borderTopColor: style.borderTopColor ?? style.borderColor,
+                        borderRightColor: style.borderRightColor ?? style.borderColor,
+                        borderBottomColor: style.borderBottomColor ?? style.borderColor,
+                        borderLeftColor: style.borderLeftColor ?? style.borderColor,
+
+                        boxShadow: style.boxShadow,
+                        opacity: style.opacity,
+                        filter: style.filter,
+                        backdropFilter: style.backdropFilter,
+                        paddingTop: style.paddingTop,
+                        paddingRight: style.paddingRight,
+                        paddingBottom: style.paddingBottom,
+                        paddingLeft: style.paddingLeft,
+                        cursor: style.cursor,
+                        userSelect: "none",
+                        pointerEvents: "none",
+                    }}
+                    className="h-full w-full"
+                />
+            </div>
+        );
+    }
+
+    /* =====================================================
+       SELECT
+    ===================================================== */
+
+    if (node.type === "select") {
+        return (
+            <SelectElement
+                {...interactionProps}
+                options={node.selectOptions ?? []}
+                value={node.selectValue ?? ""}
+                placeholder={node.selectPlaceholder}
+                name={node.selectName}
+                required={node.selectRequired ?? false}
+                disabled={node.selectDisabled ?? false}
+                multiple={node.selectMultiple ?? false}
+                style={style}
+                className={interactionClass}
+            />
+        );
+    }
+
+    /* =====================================================
+       CHECKBOX
+    ===================================================== */
+
+    if (node.type === "checkbox") {
+        return (
+            <CheckboxElement
+                {...interactionProps}
+                label={node.checkboxLabel ?? "Checkbox"}
+                value={node.checkboxValue ?? "on"}
+                name={node.checkboxName}
+                checked={node.checkboxChecked ?? false}
+                required={node.checkboxRequired ?? false}
+                disabled={node.checkboxDisabled ?? false}
+                style={style}
+                className={interactionClass}
+            />
+        );
+    }
+
+    /* =====================================================
+       RADIO
+    ===================================================== */
+
+    if (node.type === "radio") {
+        return (
+            <RadioElement
+                {...interactionProps}
+                options={node.radioOptions ?? []}
+                name={node.radioName ?? "radio-group"}
+                required={node.radioRequired ?? false}
+                disabled={node.radioDisabled ?? false}
+                style={style}
+                className={interactionClass}
+            />
+        );
+    }
+
+    /* =====================================================
+       SWITCH
+    ===================================================== */
+
+    if (node.type === "switch") {
+        return (
+            <SwitchElement
+                {...interactionProps}
+                label={node.switchLabel ?? "Toggle"}
+                name={node.switchName}
+                value={node.switchValue ?? "on"}
+                checked={node.switchChecked ?? false}
+                onChange={(event) =>
+                    updateNode(node.id, {
+                        switchChecked: event.target.checked,
+                    })
+                }
+                required={node.switchRequired ?? false}
+                disabled={node.switchDisabled ?? false}
+                style={style}
+                className={interactionClass}
+            />
+        );
+    }
+
+    /* =====================================================
        BUTTON
     ===================================================== */
 
@@ -2655,6 +3099,12 @@ function RenderNode({
         node.type ===
         "button"
     ) {
+        const buttonType =
+            node.buttonType === "submit" ||
+                node.buttonType === "reset"
+                ? node.buttonType
+                : "button";
+
         return (
             <button
                 {...interactionProps}
@@ -2662,7 +3112,17 @@ function RenderNode({
                 className={
                     interactionClass
                 }
-                type="button"
+                type={buttonType}
+                aria-disabled={
+                    node.buttonDisabled
+                        ? "true"
+                        : undefined
+                }
+                data-button-disabled={
+                    node.buttonDisabled
+                        ? "true"
+                        : undefined
+                }
             >
                 {node.content}
             </button>
@@ -2741,6 +3201,98 @@ function RenderNode({
     }
 
     /* =====================================================
+       ACCORDION
+    ===================================================== */
+
+    if (node.type === "accordion") {
+        const items = node.children ?? [];
+        const allowMultiple = node.accordionAllowMultiple ?? false;
+        const safeRootId = node.id.replace(/[^a-zA-Z0-9_-]/g, "-");
+
+        function toggleAccordionItem(itemId: string) {
+            setOpenAccordionItems((current) =>
+                toggleAccordionItemIds(
+                    current,
+                    itemId,
+                    allowMultiple,
+                ),
+            );
+        }
+
+        return (
+            <div
+                {...interactionProps}
+                style={style}
+                className={`${interactionClass} vwb-accordion-${safeRootId}`}
+                data-composite-editing-locked={
+                    compositeEditing.isLocked ? "true" : undefined
+                }
+            >
+                <style>
+                    {` .vwb-accordion-${safeRootId} .vwb-accordion-item-closed [data-accordion-role="content"] { display: none !important; }
+`}
+                </style>
+
+                {items.map((itemId) => {
+                    const item = project.nodes[itemId];
+                    if (!item) return null;
+
+                    const headerId = (item.children ?? []).find(
+                        (childId) => project.nodes[childId]?.accordionRole === "header",
+                    );
+
+                    const isOpen = openAccordionItems.includes(itemId);
+
+                    return (
+                        <div
+                            key={itemId}
+                            className={isOpen ? "vwb-accordion-item-open" : "vwb-accordion-item-closed"}
+                            onClickCapture={(event) => {
+                                const target = event.target;
+                                if (!(target instanceof Element)) return;
+
+                                const header = target.closest('[data-accordion-role="header"]');
+                                if (!header || !headerId) return;
+
+                                /*
+                                 * In locked mode the Accordion header is still an
+                                 * editable composite child. Its own children (for
+                                 * example Question 1/2/3 text or the chevron icon)
+                                 * must be allowed to receive the click themselves.
+                                 * The item-level capture handler only owns clicks
+                                 * on the header node itself, such as its empty/padded
+                                 * area.
+                                 */
+                                if (compositeEditing.isLocked) {
+                                    const targetNodeElement = target.closest('[data-node-id]');
+                                    const targetNodeId = targetNodeElement?.getAttribute('data-node-id');
+
+                                    if (targetNodeId && targetNodeId !== headerId) {
+                                        return;
+                                    }
+                                }
+
+                                event.stopPropagation();
+                                if (compositeEditing.isLocked) {
+                                    selectNode(headerId);
+                                } else {
+                                    selectNode(node.id);
+                                }
+                                toggleAccordionItem(itemId);
+                            }}
+                        >
+                            <RenderNode
+                                nodeId={itemId}
+                                viewport={viewport}
+                            />
+                        </div>
+                    );
+                })}
+            </div>
+        );
+    }
+
+    /* =====================================================
        CONTAINER-LIKE NODES
     ===================================================== */
 
@@ -2752,7 +3304,9 @@ function RenderNode({
         node.type ===
         "container" ||
         node.type ===
-        "navbar"
+        "navbar" ||
+        node.type ===
+        "card"
     ) {
         const isSelectedGrid =
             selectedNodeId ===

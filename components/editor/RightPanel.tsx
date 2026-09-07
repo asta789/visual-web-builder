@@ -17,6 +17,8 @@ import { useEditorStore } from "@/store/editorStore";
 import TokenPicker from "./design-tokens/TokenPicker";
 import IconPicker from "./IconPicker";
 import type { BuilderIconName } from "./IconElement";
+import { AccordionSettingsPanel } from "./accordion/AccordionModule";
+import { getCompositeEditingContext } from "./composite/CompositeEditingLock";
 
 /* =========================================================
    RIGHT PANEL PROPS
@@ -3274,6 +3276,24 @@ export default function RightPanel({
                 state.updateNode
         );
 
+    const addAccordionItem =
+        useEditorStore(
+            (state) =>
+                state.addAccordionItem
+        );
+
+    const deleteAccordionItem =
+        useEditorStore(
+            (state) =>
+                state.deleteAccordionItem
+        );
+
+    const selectNode =
+        useEditorStore(
+            (state) =>
+                state.selectNode
+        );
+
     const setLayoutMode =
         useEditorStore(
             (state) =>
@@ -3325,6 +3345,15 @@ export default function RightPanel({
             selectedNodeId
             ]
             : null;
+
+    const compositeEditing =
+        getCompositeEditingContext(
+            node,
+            project.nodes,
+        );
+
+    const compositeRoot =
+        compositeEditing.rootNode;
 
     const imageSource =
         node?.assetId
@@ -3510,6 +3539,26 @@ export default function RightPanel({
     }
 
     /* =====================================================
+       BUTTON UPDATE
+    ===================================================== */
+
+    function updateButton(
+        property: "buttonType" | "buttonDisabled",
+        value: "button" | "submit" | "reset" | boolean
+    ) {
+        if (!node) {
+            return;
+        }
+
+        updateNode(
+            node.id,
+            {
+                [property]: value,
+            }
+        );
+    }
+
+    /* =====================================================
        IMAGE IMPORT
     ===================================================== */
 
@@ -3638,6 +3687,529 @@ export default function RightPanel({
     }
 
     /* =====================================================
+       LIST UPDATE
+    ===================================================== */
+
+    function updateList(
+        property:
+            | "listItems"
+            | "listOrdered"
+            | "listMarkerStyle"
+            | "listStart"
+            | "listItemGap",
+        value: string[] | boolean | number | string,
+    ) {
+        if (!node || node.type !== "list") return;
+
+        updateNode(node.id, {
+            [property]: value,
+        });
+    }
+
+    function updateListItem(
+        index: number,
+        value: string,
+    ) {
+        if (!node || node.type !== "list") return;
+
+        const items = [
+            ...(node.listItems ?? []),
+        ];
+
+        items[index] = value;
+
+        updateList("listItems", items);
+    }
+
+    function addListItem() {
+        if (!node || node.type !== "list") return;
+
+        updateList("listItems", [
+            ...(node.listItems ?? []),
+            `List item ${(node.listItems?.length ?? 0) + 1}`,
+        ]);
+    }
+
+    function removeListItem(index: number) {
+        if (!node || node.type !== "list") return;
+
+        const items = [
+            ...(node.listItems ?? []),
+        ];
+
+        if (items.length <= 1) return;
+
+        items.splice(index, 1);
+
+        updateList("listItems", items);
+    }
+
+    function moveListItem(
+        index: number,
+        direction: -1 | 1,
+    ) {
+        if (!node || node.type !== "list") return;
+
+        const items = [
+            ...(node.listItems ?? []),
+        ];
+
+        const targetIndex =
+            index + direction;
+
+        if (
+            index < 0 ||
+            targetIndex < 0 ||
+            targetIndex >= items.length
+        ) {
+            return;
+        }
+
+        [
+            items[index],
+            items[targetIndex],
+        ] = [
+                items[targetIndex],
+                items[index],
+            ];
+
+        updateList("listItems", items);
+    }
+
+    /* =====================================================
+       TABLE UPDATE
+    ===================================================== */
+
+    function updateTable(
+        property:
+            | "tableData"
+            | "tableHeader"
+            | "tableStriped"
+            | "tableBorderWidth"
+            | "tableBorderStyle"
+            | "tableBorderColor"
+            | "tableCellPadding"
+            | "tableCellAlign"
+            | "tableCellVerticalAlign"
+            | "tableColumnWidths"
+            | "tableRowHeight",
+        value: string[][] | boolean | number | string[] | string,
+    ) {
+        if (!node || node.type !== "table") return;
+
+        updateNode(node.id, {
+            [property]: value,
+        });
+    }
+
+    function updateTableCell(
+        rowIndex: number,
+        columnIndex: number,
+        value: string,
+    ) {
+        if (!node || node.type !== "table") return;
+
+        const rows = (node.tableData ?? []).map((row) => [...row]);
+        if (!rows[rowIndex]) return;
+
+        while (rows[rowIndex].length <= columnIndex) {
+            rows[rowIndex].push("");
+        }
+
+        rows[rowIndex][columnIndex] = value;
+        updateTable("tableData", rows);
+    }
+
+    function addTableRow() {
+        if (!node || node.type !== "table") return;
+
+        const rows = (node.tableData ?? []).map((row) => [...row]);
+        const columnCount = Math.max(1, ...rows.map((row) => row.length));
+        rows.push(Array.from({ length: columnCount }, (_, index) => `Cell ${rows.length}-${index + 1}`));
+
+        updateTable("tableData", rows);
+    }
+
+    function removeTableRow(index: number) {
+        if (!node || node.type !== "table") return;
+
+        const rows = (node.tableData ?? []).map((row) => [...row]);
+        if (rows.length <= 1) return;
+
+        rows.splice(index, 1);
+        updateTable("tableData", rows);
+    }
+
+    function addTableColumn() {
+        if (!node || node.type !== "table") return;
+
+        const rows = (node.tableData ?? []).map((row) => [...row]);
+        const columnIndex = Math.max(0, ...rows.map((row) => row.length));
+
+        const nextRows = rows.map((row, rowIndex) => [
+            ...row,
+            rowIndex === 0 && (node.tableHeader ?? true)
+                ? `Header ${columnIndex + 1}`
+                : `Cell ${columnIndex + 1}`,
+        ]);
+
+        const widths = [...(node.tableColumnWidths ?? [])];
+        const columnCount = Math.max(1, nextRows[0]?.length ?? 1);
+        while (widths.length < columnCount) {
+            widths.push(`${100 / columnCount}%`);
+        }
+
+        updateNode(node.id, {
+            tableData: nextRows,
+            tableColumnWidths: widths.map((_, index) => `${100 / columnCount}%`),
+        });
+    }
+
+    function removeTableColumn(index: number) {
+        if (!node || node.type !== "table") return;
+
+        const rows = (node.tableData ?? []).map((row) => [...row]);
+        const columnCount = Math.max(1, ...rows.map((row) => row.length));
+        if (columnCount <= 1) return;
+
+        const nextRows = rows.map((row) => {
+            const next = [...row];
+            next.splice(index, 1);
+            return next;
+        });
+
+        const widths = (node.tableColumnWidths ?? []).filter((_, i) => i !== index);
+        const nextColumnCount = Math.max(1, columnCount - 1);
+
+        updateNode(node.id, {
+            tableData: nextRows,
+            tableColumnWidths: widths.length
+                ? widths.map(() => `${100 / nextColumnCount}%`)
+                : [],
+        });
+    }
+
+    function updateTableColumnWidth(index: number, value: string) {
+        if (!node || node.type !== "table") return;
+
+        const rows = node.tableData ?? [];
+        const columnCount = Math.max(1, ...rows.map((row) => row.length));
+        const widths = [...(node.tableColumnWidths ?? [])];
+
+        while (widths.length < columnCount) {
+            widths.push(`${100 / columnCount}%`);
+        }
+
+        widths[index] = value;
+        updateTable("tableColumnWidths", widths);
+    }
+
+    /* =====================================================
+       INPUT UPDATE
+    ===================================================== */
+
+    function updateInput(
+        property:
+            | "inputType"
+            | "inputPlaceholder"
+            | "inputValue"
+            | "inputName"
+            | "inputRequired"
+            | "inputDisabled"
+            | "inputReadOnly"
+            | "inputMin"
+            | "inputMax"
+            | "inputStep",
+        value: string | boolean,
+    ) {
+        if (!node || node.type !== "input") return;
+
+        updateNode(node.id, {
+            [property]: value,
+        });
+    }
+
+    /* =====================================================
+       TEXTAREA UPDATE
+    ===================================================== */
+
+    function updateTextarea(
+        property:
+            | "textareaPlaceholder"
+            | "textareaValue"
+            | "textareaName"
+            | "textareaRequired"
+            | "textareaDisabled"
+            | "textareaReadOnly"
+            | "textareaMinLength"
+            | "textareaMaxLength"
+            | "textareaRows"
+            | "textareaResize",
+        value: string | boolean | number,
+    ) {
+        if (!node || node.type !== "textarea") return;
+
+        updateNode(node.id, {
+            [property]: value,
+        });
+    }
+
+    /* =====================================================
+       CHECKBOX UPDATE
+    ===================================================== */
+
+    function updateCheckbox(
+        property:
+            | "checkboxLabel"
+            | "checkboxValue"
+            | "checkboxName"
+            | "checkboxChecked"
+            | "checkboxRequired"
+            | "checkboxDisabled",
+        value: string | boolean,
+    ) {
+        if (!node || node.type !== "checkbox") return;
+
+        updateNode(node.id, {
+            [property]: value,
+        });
+    }
+
+    /* =====================================================
+       RADIO UPDATE
+    ===================================================== */
+
+    function updateRadio(
+        property:
+            | "radioName"
+            | "radioRequired"
+            | "radioDisabled",
+        value: string | boolean,
+    ) {
+        if (!node || node.type !== "radio") return;
+
+        updateNode(node.id, {
+            [property]: value,
+        });
+    }
+
+    /* =====================================================
+       SWITCH UPDATE
+    ===================================================== */
+
+    function updateSwitch(
+        property:
+            | "switchLabel"
+            | "switchValue"
+            | "switchName"
+            | "switchChecked"
+            | "switchRequired"
+            | "switchDisabled",
+        value: string | boolean,
+    ) {
+        if (!node || node.type !== "switch") return;
+
+        updateNode(node.id, {
+            [property]: value,
+        });
+    }
+
+    function updateRadioOption(
+        index: number,
+        property: "label" | "value" | "checked",
+        value: string | boolean,
+    ) {
+        if (!node || node.type !== "radio") return;
+
+        const options = [...(node.radioOptions ?? [])];
+        if (!options[index]) return;
+
+        const nextOptions = options.map((option, optionIndex) => {
+            if (optionIndex !== index) {
+                return property === "checked" && value === true
+                    ? { ...option, checked: false }
+                    : option;
+            }
+
+            return {
+                ...option,
+                [property]: value,
+            };
+        });
+
+        updateNode(node.id, {
+            radioOptions: nextOptions,
+        });
+    }
+
+    function addRadioOption() {
+        if (!node || node.type !== "radio") return;
+
+        const options = [...(node.radioOptions ?? [])];
+        const index = options.length + 1;
+
+        updateNode(node.id, {
+            radioOptions: [
+                ...options,
+                {
+                    label: `Option ${index}`,
+                    value: `option-${index}`,
+                    checked: false,
+                },
+            ],
+        });
+    }
+
+    function removeRadioOption(index: number) {
+        if (!node || node.type !== "radio") return;
+
+        const options = [...(node.radioOptions ?? [])];
+        if (options.length <= 1) return;
+
+        updateNode(node.id, {
+            radioOptions: options.filter(
+                (_, optionIndex) => optionIndex !== index,
+            ),
+        });
+    }
+
+    function moveRadioOption(
+        index: number,
+        direction: -1 | 1,
+    ) {
+        if (!node || node.type !== "radio") return;
+
+        const options = [...(node.radioOptions ?? [])];
+        const targetIndex = index + direction;
+
+        if (
+            index < 0 ||
+            targetIndex < 0 ||
+            targetIndex >= options.length
+        ) {
+            return;
+        }
+
+        [options[index], options[targetIndex]] = [
+            options[targetIndex],
+            options[index],
+        ];
+
+        updateNode(node.id, {
+            radioOptions: options,
+        });
+    }
+
+
+    /* =====================================================
+       SELECT UPDATE
+    ===================================================== */
+
+    function updateSelect(
+        property:
+            | "selectValue"
+            | "selectName"
+            | "selectPlaceholder"
+            | "selectRequired"
+            | "selectDisabled"
+            | "selectMultiple",
+        value: string | boolean,
+    ) {
+        if (!node || node.type !== "select") return;
+
+        updateNode(node.id, {
+            [property]: value,
+        });
+    }
+
+    function updateSelectOption(
+        index: number,
+        property: "label" | "value",
+        value: string,
+    ) {
+        if (!node || node.type !== "select") return;
+
+        const options = [...(node.selectOptions ?? [])];
+        if (!options[index]) return;
+
+        options[index] = {
+            ...options[index],
+            [property]: value,
+        };
+
+        updateNode(node.id, {
+            selectOptions: options,
+        });
+    }
+
+    function addSelectOption() {
+        if (!node || node.type !== "select") return;
+
+        const options = [...(node.selectOptions ?? [])];
+        const index = options.length + 1;
+        const value = `option-${index}`;
+
+        updateNode(node.id, {
+            selectOptions: [
+                ...options,
+                {
+                    label: `Option ${index}`,
+                    value,
+                },
+            ],
+        });
+    }
+
+    function removeSelectOption(index: number) {
+        if (!node || node.type !== "select") return;
+
+        const options = [...(node.selectOptions ?? [])];
+        if (options.length <= 1) return;
+
+        const removedValue = options[index]?.value;
+        const nextOptions = options.filter(
+            (_, optionIndex) => optionIndex !== index,
+        );
+
+        const nextValue =
+            node.selectValue === removedValue
+                ? nextOptions[0]?.value ?? ""
+                : node.selectValue ?? "";
+
+        updateNode(node.id, {
+            selectOptions: nextOptions,
+            selectValue: nextValue,
+        });
+    }
+
+    function moveSelectOption(
+        index: number,
+        direction: -1 | 1,
+    ) {
+        if (!node || node.type !== "select") return;
+
+        const options = [...(node.selectOptions ?? [])];
+        const targetIndex = index + direction;
+
+        if (
+            index < 0 ||
+            targetIndex < 0 ||
+            targetIndex >= options.length
+        ) {
+            return;
+        }
+
+        [options[index], options[targetIndex]] = [
+            options[targetIndex],
+            options[index],
+        ];
+
+        updateNode(node.id, {
+            selectOptions: options,
+        });
+    }
+
+    /* =====================================================
        AUDIO IMPORT
     ===================================================== */
 
@@ -3673,6 +4245,52 @@ export default function RightPanel({
 
         reader.readAsDataURL(file);
         event.target.value = "";
+    }
+
+    function updateDivider(
+        property:
+            | "dividerOrientation"
+            | "dividerThickness"
+            | "dividerStyle"
+            | "dividerColor"
+            | "dividerAlign",
+        value: string | number,
+    ) {
+        if (!node || node.type !== "divider") return;
+
+        if (property === "dividerOrientation") {
+            const orientation =
+                value === "vertical"
+                    ? "vertical"
+                    : "horizontal";
+
+            const currentStyles = node.styles ?? {};
+
+            updateNode(node.id, {
+                dividerOrientation: orientation,
+                dividerAlign: "center",
+                styles: {
+                    ...currentStyles,
+                    width:
+                        orientation === "vertical"
+                            ? "40px"
+                            : "100%",
+                    height:
+                        orientation === "vertical"
+                            ? "160px"
+                            : "40px",
+                    minHeight:
+                        orientation === "vertical"
+                            ? "160px"
+                            : "40px",
+                },
+            });
+            return;
+        }
+
+        updateNode(node.id, {
+            [property]: value,
+        });
     }
 
     function updateAudio(
@@ -4092,6 +4710,1021 @@ export default function RightPanel({
                             )}
 
                         {/* ==================================================
+                            TEXTAREA
+                        ================================================== */}
+
+                        {node.type === "textarea" && (
+                            <InspectorSection title="Textarea">
+                                <StyleInput
+                                    label="Placeholder"
+                                    value={node.textareaPlaceholder ?? ""}
+                                    placeholder="Write your message..."
+                                    onChange={(value) =>
+                                        updateTextarea("textareaPlaceholder", value)
+                                    }
+                                />
+
+                                <StyleInput
+                                    label="Default Value"
+                                    value={node.textareaValue ?? ""}
+                                    placeholder="Optional initial text"
+                                    onChange={(value) =>
+                                        updateTextarea("textareaValue", value)
+                                    }
+                                />
+
+                                <StyleInput
+                                    label="Name"
+                                    value={node.textareaName ?? ""}
+                                    placeholder="message"
+                                    onChange={(value) =>
+                                        updateTextarea("textareaName", value)
+                                    }
+                                />
+
+                                <div className="grid grid-cols-2 gap-2">
+                                    <StyleInput
+                                        label="Rows"
+                                        value={String(node.textareaRows ?? 5)}
+                                        type="number"
+                                        min="1"
+                                        max="50"
+                                        step="1"
+                                        onChange={(value) =>
+                                            updateTextarea(
+                                                "textareaRows",
+                                                Math.max(1, Math.min(50, Number(value) || 1)),
+                                            )
+                                        }
+                                    />
+
+                                    <StyleSelect
+                                        label="Resize"
+                                        value={node.textareaResize ?? "vertical"}
+                                        options={[
+                                            { label: "None", value: "none" },
+                                            { label: "Horizontal", value: "horizontal" },
+                                            { label: "Vertical", value: "vertical" },
+                                            { label: "Both", value: "both" },
+                                        ]}
+                                        onChange={(value) =>
+                                            updateTextarea("textareaResize", value)
+                                        }
+                                    />
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-2">
+                                    <StyleInput
+                                        label="Min Length"
+                                        value={String(node.textareaMinLength ?? 0)}
+                                        type="number"
+                                        min="0"
+                                        step="1"
+                                        onChange={(value) =>
+                                            updateTextarea(
+                                                "textareaMinLength",
+                                                Math.max(0, Number(value) || 0),
+                                            )
+                                        }
+                                    />
+
+                                    <StyleInput
+                                        label="Max Length"
+                                        value={String(node.textareaMaxLength ?? 0)}
+                                        placeholder="0 = unlimited"
+                                        type="number"
+                                        min="0"
+                                        step="1"
+                                        onChange={(value) =>
+                                            updateTextarea(
+                                                "textareaMaxLength",
+                                                Math.max(0, Number(value) || 0),
+                                            )
+                                        }
+                                    />
+                                </div>
+
+                                <div className="space-y-2 rounded-lg border bg-gray-50 p-3">
+                                    <label className="flex cursor-pointer items-center justify-between gap-3 text-xs font-medium text-gray-600">
+                                        <span>Required<span className="ml-1 text-gray-400">Must be filled</span></span>
+                                        <input
+                                            type="checkbox"
+                                            checked={node.textareaRequired ?? false}
+                                            onChange={(event) =>
+                                                updateTextarea("textareaRequired", event.target.checked)
+                                            }
+                                            className="h-4 w-4"
+                                        />
+                                    </label>
+                                    <label className="flex cursor-pointer items-center justify-between gap-3 text-xs font-medium text-gray-600">
+                                        <span>Disabled<span className="ml-1 text-gray-400">Cannot be edited</span></span>
+                                        <input
+                                            type="checkbox"
+                                            checked={node.textareaDisabled ?? false}
+                                            onChange={(event) =>
+                                                updateTextarea("textareaDisabled", event.target.checked)
+                                            }
+                                            className="h-4 w-4"
+                                        />
+                                    </label>
+                                    <label className="flex cursor-pointer items-center justify-between gap-3 text-xs font-medium text-gray-600">
+                                        <span>Read Only<span className="ml-1 text-gray-400">Cannot change text</span></span>
+                                        <input
+                                            type="checkbox"
+                                            checked={node.textareaReadOnly ?? false}
+                                            onChange={(event) =>
+                                                updateTextarea("textareaReadOnly", event.target.checked)
+                                            }
+                                            className="h-4 w-4"
+                                        />
+                                    </label>
+                                </div>
+                            </InspectorSection>
+                        )}
+
+                        {/* ==================================================
+                            INPUT
+                        ================================================== */}
+
+                        {node.type === "input" && (
+                            <InspectorSection title="Input">
+                                <StyleSelect
+                                    label="Input Type"
+                                    value={node.inputType ?? "text"}
+                                    options={[
+                                        { label: "Text", value: "text" },
+                                        { label: "Email", value: "email" },
+                                        { label: "Password", value: "password" },
+                                        { label: "Number", value: "number" },
+                                        { label: "Telephone", value: "tel" },
+                                        { label: "URL", value: "url" },
+                                        { label: "Search", value: "search" },
+                                        { label: "Date", value: "date" },
+                                        { label: "Time", value: "time" },
+                                    ]}
+                                    onChange={(value) =>
+                                        updateInput("inputType", value)
+                                    }
+                                />
+
+                                <StyleInput
+                                    label="Placeholder"
+                                    value={node.inputPlaceholder ?? ""}
+                                    placeholder="Enter a placeholder..."
+                                    onChange={(value) =>
+                                        updateInput(
+                                            "inputPlaceholder",
+                                            value,
+                                        )
+                                    }
+                                />
+
+                                <StyleInput
+                                    label="Default Value"
+                                    value={node.inputValue ?? ""}
+                                    placeholder="Optional initial value"
+                                    onChange={(value) =>
+                                        updateInput(
+                                            "inputValue",
+                                            value,
+                                        )
+                                    }
+                                />
+
+                                <StyleInput
+                                    label="Name"
+                                    value={node.inputName ?? ""}
+                                    placeholder="field-name"
+                                    onChange={(value) =>
+                                        updateInput(
+                                            "inputName",
+                                            value,
+                                        )
+                                    }
+                                />
+
+                                {node.inputType === "number" && (
+                                    <div className="grid grid-cols-3 gap-2">
+                                        <StyleInput
+                                            label="Min"
+                                            value={node.inputMin ?? ""}
+                                            placeholder="—"
+                                            type="number"
+                                            onChange={(value) =>
+                                                updateInput(
+                                                    "inputMin",
+                                                    value,
+                                                )
+                                            }
+                                        />
+
+                                        <StyleInput
+                                            label="Max"
+                                            value={node.inputMax ?? ""}
+                                            placeholder="—"
+                                            type="number"
+                                            onChange={(value) =>
+                                                updateInput(
+                                                    "inputMax",
+                                                    value,
+                                                )
+                                            }
+                                        />
+
+                                        <StyleInput
+                                            label="Step"
+                                            value={node.inputStep ?? "1"}
+                                            placeholder="1"
+                                            type="number"
+                                            min="any"
+                                            step="any"
+                                            onChange={(value) =>
+                                                updateInput(
+                                                    "inputStep",
+                                                    value,
+                                                )
+                                            }
+                                        />
+                                    </div>
+                                )}
+
+                                <div className="space-y-2 rounded-lg border bg-gray-50 p-3">
+                                    <label className="flex cursor-pointer items-center justify-between gap-3 text-xs font-medium text-gray-600">
+                                        <span>
+                                            Required
+                                            <span className="ml-1 text-gray-400">
+                                                Must be filled
+                                            </span>
+                                        </span>
+                                        <input
+                                            type="checkbox"
+                                            checked={node.inputRequired ?? false}
+                                            onChange={(event) =>
+                                                updateInput(
+                                                    "inputRequired",
+                                                    event.target.checked,
+                                                )
+                                            }
+                                            className="h-4 w-4"
+                                        />
+                                    </label>
+
+                                    <label className="flex cursor-pointer items-center justify-between gap-3 text-xs font-medium text-gray-600">
+                                        <span>
+                                            Disabled
+                                            <span className="ml-1 text-gray-400">
+                                                Cannot be edited
+                                            </span>
+                                        </span>
+                                        <input
+                                            type="checkbox"
+                                            checked={node.inputDisabled ?? false}
+                                            onChange={(event) =>
+                                                updateInput(
+                                                    "inputDisabled",
+                                                    event.target.checked,
+                                                )
+                                            }
+                                            className="h-4 w-4"
+                                        />
+                                    </label>
+
+                                    <label className="flex cursor-pointer items-center justify-between gap-3 text-xs font-medium text-gray-600">
+                                        <span>
+                                            Read Only
+                                            <span className="ml-1 text-gray-400">
+                                                Can be focused but not changed
+                                            </span>
+                                        </span>
+                                        <input
+                                            type="checkbox"
+                                            checked={node.inputReadOnly ?? false}
+                                            onChange={(event) =>
+                                                updateInput(
+                                                    "inputReadOnly",
+                                                    event.target.checked,
+                                                )
+                                            }
+                                            className="h-4 w-4"
+                                        />
+                                    </label>
+                                </div>
+
+                                <p className="text-[11px] leading-4 text-gray-400">
+                                    Use the Design and Layout sections below for the
+                                    Input's visual styling. The settings above control
+                                    the generated HTML input itself.
+                                </p>
+                            </InspectorSection>
+                        )}
+
+                        {compositeRoot && (
+                            <InspectorSection title="Editing Lock">
+                                <div className="space-y-3">
+                                    <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+                                        <div className="text-sm font-medium text-gray-800">
+                                            {compositeEditing.isLocked ? "🔒 Locked" : "🔓 Unlocked"}
+                                        </div>
+                                        <p className="mt-1 text-[11px] leading-4 text-gray-500">
+                                            {compositeEditing.isLocked
+                                                ? "Edit the elements inside this component. The outer component stays fixed."
+                                                : "Edit, move, and resize the whole component. Inner elements stay protected on Canvas."}
+                                        </p>
+                                    </div>
+
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            const nextLocked = !compositeRoot.compositeEditingLocked;
+                                            updateNode(compositeRoot.id, {
+                                                compositeEditingLocked: nextLocked,
+                                            });
+
+                                            if (nextLocked) {
+                                                const firstChild = compositeRoot.children?.[0];
+                                                if (firstChild) selectNode(firstChild);
+                                            } else {
+                                                selectNode(compositeRoot.id);
+                                            }
+                                        }}
+                                        className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
+                                    >
+                                        {compositeEditing.isLocked ? "Unlock component" : "Lock component"}
+                                    </button>
+                                </div>
+                            </InspectorSection>
+                        )}
+
+                        {node.type === "accordion" && node.accordionRole === "root" && (
+                            <InspectorSection title="Accordion">
+                                <AccordionSettingsPanel
+                                    node={node}
+                                    updateNode={updateNode}
+                                    addItem={() => addAccordionItem(node.id)}
+                                    deleteItem={deleteAccordionItem}
+                                />
+                            </InspectorSection>
+                        )}
+
+                        {/* ==================================================
+                            CHECKBOX
+                        ================================================== */}
+
+                        {node.type === "checkbox" && (
+                            <InspectorSection title="Checkbox">
+                                <StyleInput
+                                    label="Label"
+                                    value={node.checkboxLabel ?? ""}
+                                    placeholder="I agree to the terms"
+                                    onChange={(value) =>
+                                        updateCheckbox(
+                                            "checkboxLabel",
+                                            value,
+                                        )
+                                    }
+                                />
+
+                                <StyleInput
+                                    label="Value"
+                                    value={node.checkboxValue ?? ""}
+                                    placeholder="on"
+                                    onChange={(value) =>
+                                        updateCheckbox(
+                                            "checkboxValue",
+                                            value,
+                                        )
+                                    }
+                                />
+
+                                <StyleInput
+                                    label="Name"
+                                    value={node.checkboxName ?? ""}
+                                    placeholder="terms"
+                                    onChange={(value) =>
+                                        updateCheckbox(
+                                            "checkboxName",
+                                            value,
+                                        )
+                                    }
+                                />
+
+                                <div className="space-y-2 rounded-lg border bg-gray-50 p-3">
+                                    <label className="flex cursor-pointer items-center justify-between gap-3 text-xs font-medium text-gray-600">
+                                        <span>
+                                            Checked by Default
+                                            <span className="ml-1 text-gray-400">
+                                                Starts selected
+                                            </span>
+                                        </span>
+                                        <input
+                                            type="checkbox"
+                                            checked={node.checkboxChecked ?? false}
+                                            onChange={(event) =>
+                                                updateCheckbox(
+                                                    "checkboxChecked",
+                                                    event.target.checked,
+                                                )
+                                            }
+                                            className="h-4 w-4"
+                                        />
+                                    </label>
+
+                                    <label className="flex cursor-pointer items-center justify-between gap-3 text-xs font-medium text-gray-600">
+                                        <span>
+                                            Required
+                                            <span className="ml-1 text-gray-400">
+                                                Must be checked
+                                            </span>
+                                        </span>
+                                        <input
+                                            type="checkbox"
+                                            checked={node.checkboxRequired ?? false}
+                                            onChange={(event) =>
+                                                updateCheckbox(
+                                                    "checkboxRequired",
+                                                    event.target.checked,
+                                                )
+                                            }
+                                            className="h-4 w-4"
+                                        />
+                                    </label>
+
+                                    <label className="flex cursor-pointer items-center justify-between gap-3 text-xs font-medium text-gray-600">
+                                        <span>
+                                            Disabled
+                                            <span className="ml-1 text-gray-400">
+                                                Cannot be changed
+                                            </span>
+                                        </span>
+                                        <input
+                                            type="checkbox"
+                                            checked={node.checkboxDisabled ?? false}
+                                            onChange={(event) =>
+                                                updateCheckbox(
+                                                    "checkboxDisabled",
+                                                    event.target.checked,
+                                                )
+                                            }
+                                            className="h-4 w-4"
+                                        />
+                                    </label>
+                                </div>
+
+                                <p className="text-[11px] leading-4 text-gray-400">
+                                    Use the Design and Layout sections below for the
+                                    Checkbox's visual styling. The settings above control
+                                    the generated HTML checkbox itself.
+                                </p>
+                            </InspectorSection>
+                        )}
+
+                        {/* ==================================================
+                            RADIO GROUP
+                        ================================================== */}
+
+                        {node.type === "switch" && (
+                            <InspectorSection title="Switch">
+                                <StyleInput
+                                    label="Label"
+                                    value={node.switchLabel ?? ""}
+                                    placeholder="Enable notifications"
+                                    onChange={(value) =>
+                                        updateSwitch(
+                                            "switchLabel",
+                                            value,
+                                        )
+                                    }
+                                />
+
+                                <StyleInput
+                                    label="Value"
+                                    value={node.switchValue ?? ""}
+                                    placeholder="on"
+                                    onChange={(value) =>
+                                        updateSwitch(
+                                            "switchValue",
+                                            value,
+                                        )
+                                    }
+                                />
+
+                                <StyleInput
+                                    label="Name"
+                                    value={node.switchName ?? ""}
+                                    placeholder="notifications"
+                                    onChange={(value) =>
+                                        updateSwitch(
+                                            "switchName",
+                                            value,
+                                        )
+                                    }
+                                />
+
+                                <div className="space-y-2 rounded-lg border bg-gray-50 p-3">
+                                    <label className="flex cursor-pointer items-center justify-between gap-3 text-xs font-medium text-gray-600">
+                                        <span>
+                                            Checked by Default
+                                            <span className="ml-1 text-gray-400">
+                                                Starts enabled
+                                            </span>
+                                        </span>
+                                        <input
+                                            type="checkbox"
+                                            checked={
+                                                node.switchChecked ?? false
+                                            }
+                                            onChange={(event) =>
+                                                updateSwitch(
+                                                    "switchChecked",
+                                                    event.target.checked,
+                                                )
+                                            }
+                                            className="h-4 w-4"
+                                        />
+                                    </label>
+
+                                    <label className="flex cursor-pointer items-center justify-between gap-3 text-xs font-medium text-gray-600">
+                                        <span>
+                                            Required
+                                            <span className="ml-1 text-gray-400">
+                                                Must be enabled
+                                            </span>
+                                        </span>
+                                        <input
+                                            type="checkbox"
+                                            checked={
+                                                node.switchRequired ?? false
+                                            }
+                                            onChange={(event) =>
+                                                updateSwitch(
+                                                    "switchRequired",
+                                                    event.target.checked,
+                                                )
+                                            }
+                                            className="h-4 w-4"
+                                        />
+                                    </label>
+
+                                    <label className="flex cursor-pointer items-center justify-between gap-3 text-xs font-medium text-gray-600">
+                                        <span>
+                                            Disabled
+                                            <span className="ml-1 text-gray-400">
+                                                Cannot be changed
+                                            </span>
+                                        </span>
+                                        <input
+                                            type="checkbox"
+                                            checked={
+                                                node.switchDisabled ?? false
+                                            }
+                                            onChange={(event) =>
+                                                updateSwitch(
+                                                    "switchDisabled",
+                                                    event.target.checked,
+                                                )
+                                            }
+                                            className="h-4 w-4"
+                                        />
+                                    </label>
+                                </div>
+
+                                <p className="text-[11px] leading-4 text-gray-400">
+                                    Use the Design and Layout sections below for
+                                    the Switch's visual styling.
+                                </p>
+                            </InspectorSection>
+                        )}
+
+                        {node.type === "radio" && (
+                            <InspectorSection title="Radio Group">
+                                <StyleInput
+                                    label="Name"
+                                    value={node.radioName ?? ""}
+                                    placeholder="radio-group"
+                                    onChange={(value) =>
+                                        updateRadio("radioName", value)
+                                    }
+                                />
+
+                                <div className="space-y-3 rounded-lg border bg-gray-50 p-3">
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <div className="text-xs font-semibold text-gray-600">
+                                                Options
+                                            </div>
+                                            <p className="mt-1 text-[11px] text-gray-400">
+                                                Add, edit, remove, or reorder radio options.
+                                            </p>
+                                        </div>
+
+                                        <button
+                                            type="button"
+                                            onClick={addRadioOption}
+                                            className="rounded-md border border-blue-200 bg-blue-50 px-2.5 py-1.5 text-xs font-medium text-blue-600 transition hover:bg-blue-100"
+                                        >
+                                            + Add
+                                        </button>
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        {(node.radioOptions ?? []).map(
+                                            (option, index) => (
+                                                <div
+                                                    key={`radio-option-${index}`}
+                                                    className="space-y-2 rounded-md border bg-white p-2.5"
+                                                >
+                                                    <div className="flex items-center justify-between">
+                                                        <span className="text-[11px] font-semibold text-gray-500">
+                                                            Option {index + 1}
+                                                        </span>
+
+                                                        <div className="flex gap-1">
+                                                            <button
+                                                                type="button"
+                                                                onClick={() =>
+                                                                    moveRadioOption(
+                                                                        index,
+                                                                        -1,
+                                                                    )
+                                                                }
+                                                                disabled={index === 0}
+                                                                className="rounded border px-2 py-1 text-[11px] text-gray-500 disabled:cursor-not-allowed disabled:opacity-40"
+                                                                title="Move up"
+                                                            >
+                                                                ↑
+                                                            </button>
+
+                                                            <button
+                                                                type="button"
+                                                                onClick={() =>
+                                                                    moveRadioOption(
+                                                                        index,
+                                                                        1,
+                                                                    )
+                                                                }
+                                                                disabled={
+                                                                    index ===
+                                                                    (node.radioOptions?.length ?? 1) - 1
+                                                                }
+                                                                className="rounded border px-2 py-1 text-[11px] text-gray-500 disabled:cursor-not-allowed disabled:opacity-40"
+                                                                title="Move down"
+                                                            >
+                                                                ↓
+                                                            </button>
+
+                                                            <button
+                                                                type="button"
+                                                                onClick={() =>
+                                                                    removeRadioOption(
+                                                                        index,
+                                                                    )
+                                                                }
+                                                                disabled={
+                                                                    (node.radioOptions?.length ?? 0) <= 1
+                                                                }
+                                                                className="rounded border px-2 py-1 text-[11px] text-gray-500 transition hover:text-red-500 disabled:cursor-not-allowed disabled:opacity-40"
+                                                            >
+                                                                Remove
+                                                            </button>
+                                                        </div>
+                                                    </div>
+
+                                                    <StyleInput
+                                                        label="Label"
+                                                        value={option.label}
+                                                        placeholder="Option label"
+                                                        onChange={(value) =>
+                                                            updateRadioOption(
+                                                                index,
+                                                                "label",
+                                                                value,
+                                                            )
+                                                        }
+                                                    />
+
+                                                    <StyleInput
+                                                        label="Value"
+                                                        value={option.value}
+                                                        placeholder="option-value"
+                                                        onChange={(value) =>
+                                                            updateRadioOption(
+                                                                index,
+                                                                "value",
+                                                                value,
+                                                            )
+                                                        }
+                                                    />
+
+                                                    <label className="flex cursor-pointer items-center justify-between gap-3 text-xs font-medium text-gray-600">
+                                                        <span>
+                                                            Checked by Default
+                                                            <span className="ml-1 text-gray-400">
+                                                                Starts selected
+                                                            </span>
+                                                        </span>
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={option.checked ?? false}
+                                                            onChange={(event) =>
+                                                                updateRadioOption(
+                                                                    index,
+                                                                    "checked",
+                                                                    event.target.checked,
+                                                                )
+                                                            }
+                                                            className="h-4 w-4"
+                                                        />
+                                                    </label>
+                                                </div>
+                                            ),
+                                        )}
+                                    </div>
+                                </div>
+
+                                <div className="space-y-2 rounded-lg border bg-gray-50 p-3">
+                                    <label className="flex cursor-pointer items-center justify-between gap-3 text-xs font-medium text-gray-600">
+                                        <span>
+                                            Required
+                                            <span className="ml-1 text-gray-400">
+                                                Must select one
+                                            </span>
+                                        </span>
+                                        <input
+                                            type="checkbox"
+                                            checked={node.radioRequired ?? false}
+                                            onChange={(event) =>
+                                                updateRadio(
+                                                    "radioRequired",
+                                                    event.target.checked,
+                                                )
+                                            }
+                                            className="h-4 w-4"
+                                        />
+                                    </label>
+
+                                    <label className="flex cursor-pointer items-center justify-between gap-3 text-xs font-medium text-gray-600">
+                                        <span>
+                                            Disabled
+                                            <span className="ml-1 text-gray-400">
+                                                Cannot be changed
+                                            </span>
+                                        </span>
+                                        <input
+                                            type="checkbox"
+                                            checked={node.radioDisabled ?? false}
+                                            onChange={(event) =>
+                                                updateRadio(
+                                                    "radioDisabled",
+                                                    event.target.checked,
+                                                )
+                                            }
+                                            className="h-4 w-4"
+                                        />
+                                    </label>
+                                </div>
+
+                                <p className="text-[11px] leading-4 text-gray-400">
+                                    All options use the same Name, so only one radio can be selected at a time.
+                                </p>
+                            </InspectorSection>
+                        )}
+
+                        {/* ==================================================
+                            SELECT
+                        ================================================== */}
+
+                        {node.type === "select" && (
+                            <InspectorSection title="Select">
+                                <StyleInput
+                                    label="Placeholder"
+                                    value={node.selectPlaceholder ?? ""}
+                                    placeholder="Select an option"
+                                    onChange={(value) =>
+                                        updateSelect(
+                                            "selectPlaceholder",
+                                            value,
+                                        )
+                                    }
+                                />
+
+                                <StyleInput
+                                    label="Name"
+                                    value={node.selectName ?? ""}
+                                    placeholder="country"
+                                    onChange={(value) =>
+                                        updateSelect(
+                                            "selectName",
+                                            value,
+                                        )
+                                    }
+                                />
+
+                                <StyleSelect
+                                    label="Default Selected Option"
+                                    value={node.selectValue ?? ""}
+                                    options={(node.selectOptions ?? []).map(
+                                        (option) => ({
+                                            label: option.label || option.value,
+                                            value: option.value,
+                                        }),
+                                    )}
+                                    onChange={(value) =>
+                                        updateSelect(
+                                            "selectValue",
+                                            value,
+                                        )
+                                    }
+                                />
+
+                                <div className="space-y-3 rounded-lg border bg-gray-50 p-3">
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <div className="text-xs font-semibold text-gray-600">
+                                                Options
+                                            </div>
+                                            <p className="mt-1 text-[11px] text-gray-400">
+                                                Add, edit, remove, or reorder dropdown options.
+                                            </p>
+                                        </div>
+
+                                        <button
+                                            type="button"
+                                            onClick={addSelectOption}
+                                            className="rounded-md border border-blue-200 bg-blue-50 px-2.5 py-1.5 text-xs font-medium text-blue-600 transition hover:bg-blue-100"
+                                        >
+                                            + Add
+                                        </button>
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        {(node.selectOptions ?? []).map(
+                                            (option, index) => (
+                                                <div
+                                                    key={`select-option-${index}`}
+                                                    className="space-y-2 rounded-md border bg-white p-2.5"
+                                                >
+                                                    <div className="flex items-center justify-between">
+                                                        <span className="text-[11px] font-semibold text-gray-500">
+                                                            Option {index + 1}
+                                                        </span>
+
+                                                        <div className="flex gap-1">
+                                                            <button
+                                                                type="button"
+                                                                onClick={() =>
+                                                                    moveSelectOption(
+                                                                        index,
+                                                                        -1,
+                                                                    )
+                                                                }
+                                                                disabled={index === 0}
+                                                                className="rounded border px-2 py-1 text-[11px] text-gray-500 disabled:cursor-not-allowed disabled:opacity-40"
+                                                                title="Move up"
+                                                            >
+                                                                ↑
+                                                            </button>
+
+                                                            <button
+                                                                type="button"
+                                                                onClick={() =>
+                                                                    moveSelectOption(
+                                                                        index,
+                                                                        1,
+                                                                    )
+                                                                }
+                                                                disabled={
+                                                                    index ===
+                                                                    (node.selectOptions?.length ??
+                                                                        1) -
+                                                                    1
+                                                                }
+                                                                className="rounded border px-2 py-1 text-[11px] text-gray-500 disabled:cursor-not-allowed disabled:opacity-40"
+                                                                title="Move down"
+                                                            >
+                                                                ↓
+                                                            </button>
+
+                                                            <button
+                                                                type="button"
+                                                                onClick={() =>
+                                                                    removeSelectOption(
+                                                                        index,
+                                                                    )
+                                                                }
+                                                                disabled={
+                                                                    (node.selectOptions
+                                                                        ?.length ??
+                                                                        0) <= 1
+                                                                }
+                                                                className="rounded border px-2 py-1 text-[11px] text-gray-500 transition hover:text-red-500 disabled:cursor-not-allowed disabled:opacity-40"
+                                                            >
+                                                                Remove
+                                                            </button>
+                                                        </div>
+                                                    </div>
+
+                                                    <StyleInput
+                                                        label="Label"
+                                                        value={option.label}
+                                                        placeholder="Option label"
+                                                        onChange={(value) =>
+                                                            updateSelectOption(
+                                                                index,
+                                                                "label",
+                                                                value,
+                                                            )
+                                                        }
+                                                    />
+
+                                                    <StyleInput
+                                                        label="Value"
+                                                        value={option.value}
+                                                        placeholder="option-value"
+                                                        onChange={(value) =>
+                                                            updateSelectOption(
+                                                                index,
+                                                                "value",
+                                                                value,
+                                                            )
+                                                        }
+                                                    />
+                                                </div>
+                                            ),
+                                        )}
+                                    </div>
+                                </div>
+
+                                <div className="space-y-2 rounded-lg border bg-gray-50 p-3">
+                                    <label className="flex cursor-pointer items-center justify-between gap-3 text-xs font-medium text-gray-600">
+                                        <span>
+                                            Required
+                                            <span className="ml-1 text-gray-400">
+                                                Must be selected
+                                            </span>
+                                        </span>
+                                        <input
+                                            type="checkbox"
+                                            checked={node.selectRequired ?? false}
+                                            onChange={(event) =>
+                                                updateSelect(
+                                                    "selectRequired",
+                                                    event.target.checked,
+                                                )
+                                            }
+                                            className="h-4 w-4"
+                                        />
+                                    </label>
+
+                                    <label className="flex cursor-pointer items-center justify-between gap-3 text-xs font-medium text-gray-600">
+                                        <span>
+                                            Disabled
+                                            <span className="ml-1 text-gray-400">
+                                                Cannot be changed
+                                            </span>
+                                        </span>
+                                        <input
+                                            type="checkbox"
+                                            checked={node.selectDisabled ?? false}
+                                            onChange={(event) =>
+                                                updateSelect(
+                                                    "selectDisabled",
+                                                    event.target.checked,
+                                                )
+                                            }
+                                            className="h-4 w-4"
+                                        />
+                                    </label>
+
+                                    <label className="flex cursor-pointer items-center justify-between gap-3 text-xs font-medium text-gray-600">
+                                        <span>
+                                            Multiple
+                                            <span className="ml-1 text-gray-400">
+                                                Allow multiple selections
+                                            </span>
+                                        </span>
+                                        <input
+                                            type="checkbox"
+                                            checked={node.selectMultiple ?? false}
+                                            onChange={(event) =>
+                                                updateSelect(
+                                                    "selectMultiple",
+                                                    event.target.checked,
+                                                )
+                                            }
+                                            className="h-4 w-4"
+                                        />
+                                    </label>
+                                </div>
+
+                                <p className="text-[11px] leading-4 text-gray-400">
+                                    Use the Design and Layout sections below for
+                                    the Select's visual styling. The settings
+                                    above control the generated HTML select itself.
+                                </p>
+                            </InspectorSection>
+                        )}
+
+                        {/* ==================================================
                             ICON
                         ================================================== */}
 
@@ -4286,6 +5919,598 @@ export default function RightPanel({
                                         Remove Video
                                     </button>
                                 )}
+                            </InspectorSection>
+                        )}
+
+                        {/* ==================================================
+                            DIVIDER
+                        ================================================== */}
+
+                        {node.type === "divider" && (
+                            <InspectorSection title="Divider">
+                                <StyleSelect
+                                    label="Orientation"
+                                    value={node.dividerOrientation ?? "horizontal"}
+                                    options={[
+                                        { label: "Horizontal", value: "horizontal" },
+                                        { label: "Vertical", value: "vertical" },
+                                    ]}
+                                    onChange={(value) =>
+                                        updateDivider("dividerOrientation", value)
+                                    }
+                                />
+
+                                <StyleInput
+                                    label="Thickness"
+                                    type="number"
+                                    min="1"
+                                    max="50"
+                                    step="1"
+                                    value={String(node.dividerThickness ?? 2)}
+                                    onChange={(value) =>
+                                        updateDivider(
+                                            "dividerThickness",
+                                            Math.max(1, Number(value) || 1),
+                                        )
+                                    }
+                                />
+
+                                <StyleSelect
+                                    label="Line Style"
+                                    value={node.dividerStyle ?? "solid"}
+                                    options={[
+                                        { label: "Solid", value: "solid" },
+                                        { label: "Dashed", value: "dashed" },
+                                        { label: "Dotted", value: "dotted" },
+                                        { label: "Double", value: "double" },
+                                    ]}
+                                    onChange={(value) =>
+                                        updateDivider("dividerStyle", value)
+                                    }
+                                />
+
+                                <ColorInput
+                                    label="Color"
+                                    value={node.dividerColor ?? "#d1d5db"}
+                                    onChange={(value) =>
+                                        updateDivider("dividerColor", value)
+                                    }
+                                />
+
+                                <DesignTokenColorControl
+                                    value={node.dividerColor ?? "#d1d5db"}
+                                    onChange={(value) =>
+                                        updateDivider("dividerColor", value)
+                                    }
+                                />
+
+                                <StyleSelect
+                                    label={
+                                        node.dividerOrientation === "vertical"
+                                            ? "Vertical Alignment"
+                                            : "Horizontal Alignment"
+                                    }
+                                    value={node.dividerAlign ?? "center"}
+                                    options={
+                                        node.dividerOrientation === "vertical"
+                                            ? [
+                                                { label: "Left", value: "left" },
+                                                { label: "Center", value: "center" },
+                                                { label: "Right", value: "right" },
+                                            ]
+                                            : [
+                                                { label: "Top", value: "top" },
+                                                { label: "Center", value: "center" },
+                                                { label: "Bottom", value: "bottom" },
+                                            ]
+                                    }
+                                    onChange={(value) =>
+                                        updateDivider("dividerAlign", value)
+                                    }
+                                />
+
+                                <div className="rounded-md border border-gray-100 bg-gray-50 px-3 py-2 text-[11px] text-gray-500">
+                                    Use the existing Size and Spacing controls below to set the divider's responsive width, height, and surrounding space.
+                                </div>
+                            </InspectorSection>
+                        )}
+
+                        {/* ==================================================
+                            LIST
+                        ================================================== */}
+
+                        {node.type === "list" && (
+                            <InspectorSection title="List">
+                                <StyleSelect
+                                    label="List Type"
+                                    value={
+                                        node.listOrdered
+                                            ? "ordered"
+                                            : "unordered"
+                                    }
+                                    options={[
+                                        {
+                                            label: "Unordered",
+                                            value: "unordered",
+                                        },
+                                        {
+                                            label: "Ordered",
+                                            value: "ordered",
+                                        },
+                                    ]}
+                                    onChange={(value) => {
+                                        const ordered =
+                                            value === "ordered";
+
+                                        updateNode(node.id, {
+                                            listOrdered: ordered,
+                                            listMarkerStyle:
+                                                ordered
+                                                    ? "decimal"
+                                                    : "disc",
+                                        });
+                                    }}
+                                />
+
+                                <StyleSelect
+                                    label="Marker Style"
+                                    value={
+                                        node.listMarkerStyle ??
+                                        (node.listOrdered
+                                            ? "decimal"
+                                            : "disc")
+                                    }
+                                    options={
+                                        node.listOrdered
+                                            ? [
+                                                {
+                                                    label: "Decimal",
+                                                    value: "decimal",
+                                                },
+                                                {
+                                                    label: "Lower Alpha",
+                                                    value: "lower-alpha",
+                                                },
+                                                {
+                                                    label: "Upper Alpha",
+                                                    value: "upper-alpha",
+                                                },
+                                                {
+                                                    label: "Lower Roman",
+                                                    value: "lower-roman",
+                                                },
+                                                {
+                                                    label: "Upper Roman",
+                                                    value: "upper-roman",
+                                                },
+                                                {
+                                                    label: "None",
+                                                    value: "none",
+                                                },
+                                            ]
+                                            : [
+                                                {
+                                                    label: "Disc",
+                                                    value: "disc",
+                                                },
+                                                {
+                                                    label: "Circle",
+                                                    value: "circle",
+                                                },
+                                                {
+                                                    label: "Square",
+                                                    value: "square",
+                                                },
+                                                {
+                                                    label: "None",
+                                                    value: "none",
+                                                },
+                                            ]
+                                    }
+                                    onChange={(value) =>
+                                        updateList(
+                                            "listMarkerStyle",
+                                            value,
+                                        )
+                                    }
+                                />
+
+                                {node.listOrdered && (
+                                    <StyleInput
+                                        label="Start Number"
+                                        type="number"
+                                        min="1"
+                                        step="1"
+                                        value={String(
+                                            node.listStart ?? 1,
+                                        )}
+                                        onChange={(value) =>
+                                            updateList(
+                                                "listStart",
+                                                Math.max(
+                                                    1,
+                                                    Number(value) || 1,
+                                                ),
+                                            )
+                                        }
+                                    />
+                                )}
+
+                                <StyleInput
+                                    label="Item Spacing"
+                                    type="number"
+                                    min="0"
+                                    max="100"
+                                    step="1"
+                                    value={String(
+                                        node.listItemGap ?? 8,
+                                    )}
+                                    onChange={(value) =>
+                                        updateList(
+                                            "listItemGap",
+                                            Math.max(
+                                                0,
+                                                Number(value) || 0,
+                                            ),
+                                        )
+                                    }
+                                />
+
+                                <div>
+                                    <label className="mb-1.5 block text-xs font-medium text-gray-500">
+                                        List Items
+                                    </label>
+
+                                    <div className="space-y-2">
+                                        {(node.listItems ?? [
+                                            "List item",
+                                        ]).map(
+                                            (item, index) => (
+                                                <div
+                                                    key={index}
+                                                    className="rounded-md border bg-gray-50 p-2"
+                                                >
+                                                    <input
+                                                        type="text"
+                                                        value={item}
+                                                        onChange={(event) =>
+                                                            updateListItem(
+                                                                index,
+                                                                event.target.value,
+                                                            )
+                                                        }
+                                                        className="w-full rounded-md border bg-white px-2.5 py-2 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                                                        placeholder={`List item ${index + 1}`}
+                                                    />
+
+                                                    <div className="mt-2 grid grid-cols-4 gap-1">
+                                                        <button
+                                                            type="button"
+                                                            disabled={index === 0}
+                                                            onClick={() =>
+                                                                moveListItem(
+                                                                    index,
+                                                                    -1,
+                                                                )
+                                                            }
+                                                            className="rounded border bg-white px-2 py-1 text-xs disabled:cursor-not-allowed disabled:opacity-40"
+                                                            title="Move up"
+                                                        >
+                                                            ↑
+                                                        </button>
+
+                                                        <button
+                                                            type="button"
+                                                            disabled={
+                                                                index ===
+                                                                (node.listItems?.length ??
+                                                                    1) -
+                                                                1
+                                                            }
+                                                            onClick={() =>
+                                                                moveListItem(
+                                                                    index,
+                                                                    1,
+                                                                )
+                                                            }
+                                                            className="rounded border bg-white px-2 py-1 text-xs disabled:cursor-not-allowed disabled:opacity-40"
+                                                            title="Move down"
+                                                        >
+                                                            ↓
+                                                        </button>
+
+                                                        <button
+                                                            type="button"
+                                                            disabled={
+                                                                (node.listItems?.length ??
+                                                                    1) <=
+                                                                1
+                                                            }
+                                                            onClick={() =>
+                                                                removeListItem(
+                                                                    index,
+                                                                )
+                                                            }
+                                                            className="rounded border border-red-200 bg-white px-2 py-1 text-xs text-red-500 disabled:cursor-not-allowed disabled:opacity-40"
+                                                            title="Remove item"
+                                                        >
+                                                            ×
+                                                        </button>
+
+                                                        <span className="flex items-center justify-center text-[10px] text-gray-400">
+                                                            {index + 1}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            ),
+                                        )}
+                                    </div>
+
+                                    <button
+                                        type="button"
+                                        onClick={addListItem}
+                                        className="mt-2 w-full rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-medium text-blue-600 transition hover:bg-blue-100"
+                                    >
+                                        + Add List Item
+                                    </button>
+                                </div>
+                            </InspectorSection>
+                        )}
+
+                        {/* ==================================================
+                            TABLE
+                        ================================================== */}
+
+                        {node.type === "table" && (
+                            <InspectorSection title="Table">
+                                <StyleSelect
+                                    label="Header Row"
+                                    value={node.tableHeader === false ? "false" : "true"}
+                                    options={[
+                                        { label: "Show", value: "true" },
+                                        { label: "Hide", value: "false" },
+                                    ]}
+                                    onChange={(value) =>
+                                        updateTable("tableHeader", value === "true")
+                                    }
+                                />
+
+                                <StyleSelect
+                                    label="Striped Rows"
+                                    value={node.tableStriped ? "true" : "false"}
+                                    options={[
+                                        { label: "On", value: "true" },
+                                        { label: "Off", value: "false" },
+                                    ]}
+                                    onChange={(value) =>
+                                        updateTable("tableStriped", value === "true")
+                                    }
+                                />
+
+                                <StyleInput
+                                    label="Border Width"
+                                    type="number"
+                                    min="0"
+                                    max="20"
+                                    step="1"
+                                    value={String(node.tableBorderWidth ?? 1)}
+                                    onChange={(value) =>
+                                        updateTable(
+                                            "tableBorderWidth",
+                                            Math.max(0, Number(value) || 0),
+                                        )
+                                    }
+                                />
+
+                                <StyleSelect
+                                    label="Border Style"
+                                    value={node.tableBorderStyle ?? "solid"}
+                                    options={[
+                                        { label: "Solid", value: "solid" },
+                                        { label: "Dashed", value: "dashed" },
+                                        { label: "Dotted", value: "dotted" },
+                                        { label: "Double", value: "double" },
+                                        { label: "None", value: "none" },
+                                    ]}
+                                    onChange={(value) =>
+                                        updateTable("tableBorderStyle", value)
+                                    }
+                                />
+
+                                <ColorInput
+                                    label="Border Color"
+                                    value={node.tableBorderColor ?? "#d1d5db"}
+                                    onChange={(value) =>
+                                        updateTable("tableBorderColor", value)
+                                    }
+                                />
+
+                                <DesignTokenColorControl
+                                    value={node.tableBorderColor ?? "#d1d5db"}
+                                    onChange={(value) =>
+                                        updateTable("tableBorderColor", value)
+                                    }
+                                />
+
+                                <StyleInput
+                                    label="Cell Padding"
+                                    type="number"
+                                    min="0"
+                                    max="100"
+                                    step="1"
+                                    value={String(node.tableCellPadding ?? 10)}
+                                    onChange={(value) =>
+                                        updateTable(
+                                            "tableCellPadding",
+                                            Math.max(0, Number(value) || 0),
+                                        )
+                                    }
+                                />
+
+                                <StyleSelect
+                                    label="Horizontal Alignment"
+                                    value={node.tableCellAlign ?? "left"}
+                                    options={[
+                                        { label: "Left", value: "left" },
+                                        { label: "Center", value: "center" },
+                                        { label: "Right", value: "right" },
+                                    ]}
+                                    onChange={(value) =>
+                                        updateTable("tableCellAlign", value)
+                                    }
+                                />
+
+                                <StyleSelect
+                                    label="Vertical Alignment"
+                                    value={node.tableCellVerticalAlign ?? "middle"}
+                                    options={[
+                                        { label: "Top", value: "top" },
+                                        { label: "Middle", value: "middle" },
+                                        { label: "Bottom", value: "bottom" },
+                                    ]}
+                                    onChange={(value) =>
+                                        updateTable("tableCellVerticalAlign", value)
+                                    }
+                                />
+
+                                <StyleInput
+                                    label="Row Height"
+                                    type="number"
+                                    min="0"
+                                    max="500"
+                                    step="1"
+                                    value={String(node.tableRowHeight ?? 0)}
+                                    placeholder="Auto"
+                                    onChange={(value) =>
+                                        updateTable(
+                                            "tableRowHeight",
+                                            Math.max(0, Number(value) || 0),
+                                        )
+                                    }
+                                />
+
+                                <div>
+                                    <label className="mb-1.5 block text-xs font-medium text-gray-500">
+                                        Column Widths
+                                    </label>
+                                    <div className="space-y-2">
+                                        {Array.from({
+                                            length: Math.max(
+                                                1,
+                                                ...(node.tableData ?? []).map((row) => row.length),
+                                            ),
+                                        }).map((_, index) => (
+                                            <div key={index} className="flex gap-2">
+                                                <input
+                                                    type="text"
+                                                    value={
+                                                        node.tableColumnWidths?.[index] ??
+                                                        `${100 / Math.max(
+                                                            1,
+                                                            ...(node.tableData ?? []).map((row) => row.length),
+                                                        )}%`
+                                                    }
+                                                    onChange={(event) =>
+                                                        updateTableColumnWidth(
+                                                            index,
+                                                            event.target.value,
+                                                        )
+                                                    }
+                                                    placeholder="e.g. 25%"
+                                                    className="min-w-0 flex-1 rounded-md border px-2.5 py-2 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => removeTableColumn(index)}
+                                                    disabled={
+                                                        Math.max(
+                                                            1,
+                                                            ...(node.tableData ?? []).map((row) => row.length),
+                                                        ) <= 1
+                                                    }
+                                                    className="rounded-md border border-red-200 px-2 text-xs text-red-500 disabled:cursor-not-allowed disabled:opacity-40"
+                                                    title="Remove column"
+                                                >
+                                                    ×
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label className="mb-1.5 block text-xs font-medium text-gray-500">
+                                        Table Cells
+                                    </label>
+
+                                    <div className="space-y-3">
+                                        {(node.tableData ?? [[""]]).map(
+                                            (row, rowIndex) => (
+                                                <div
+                                                    key={rowIndex}
+                                                    className="rounded-md border bg-gray-50 p-2"
+                                                >
+                                                    <div className="mb-2 flex items-center justify-between">
+                                                        <span className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">
+                                                            {node.tableHeader !== false && rowIndex === 0
+                                                                ? "Header Row"
+                                                                : `Row ${rowIndex + 1}`}
+                                                        </span>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => removeTableRow(rowIndex)}
+                                                            disabled={(node.tableData?.length ?? 1) <= 1}
+                                                            className="rounded border border-red-200 bg-white px-2 py-1 text-[10px] text-red-500 disabled:cursor-not-allowed disabled:opacity-40"
+                                                        >
+                                                            Remove
+                                                        </button>
+                                                    </div>
+
+                                                    <div className="space-y-2">
+                                                        {Array.from({
+                                                            length: Math.max(
+                                                                1,
+                                                                ...(node.tableData ?? []).map((r) => r.length),
+                                                            ),
+                                                        }).map((_, columnIndex) => (
+                                                            <input
+                                                                key={columnIndex}
+                                                                type="text"
+                                                                value={row[columnIndex] ?? ""}
+                                                                onChange={(event) =>
+                                                                    updateTableCell(
+                                                                        rowIndex,
+                                                                        columnIndex,
+                                                                        event.target.value,
+                                                                    )
+                                                                }
+                                                                placeholder={`Cell ${rowIndex + 1}, ${columnIndex + 1}`}
+                                                                className="w-full rounded-md border bg-white px-2.5 py-2 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                                                            />
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            ),
+                                        )}
+                                    </div>
+
+                                    <div className="mt-2 grid grid-cols-2 gap-2">
+                                        <button
+                                            type="button"
+                                            onClick={addTableRow}
+                                            className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-medium text-blue-600 hover:bg-blue-100"
+                                        >
+                                            + Add Row
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={addTableColumn}
+                                            className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-medium text-blue-600 hover:bg-blue-100"
+                                        >
+                                            + Add Column
+                                        </button>
+                                    </div>
+                                </div>
                             </InspectorSection>
                         )}
 
@@ -4638,6 +6863,74 @@ export default function RightPanel({
                                         )
                                     }
                                 />
+                            </InspectorSection>
+                        )}
+
+                        {/* ==================================================
+                            BUTTON SETTINGS
+                        ================================================== */}
+
+                        {node.type === "button" && (
+                            <InspectorSection
+                                title="Button"
+                            >
+                                <StyleSelect
+                                    label="Button Type"
+                                    value={
+                                        node.buttonType ?? "button"
+                                    }
+                                    options={[
+                                        {
+                                            label: "Button",
+                                            value: "button",
+                                        },
+                                        {
+                                            label: "Submit",
+                                            value: "submit",
+                                        },
+                                        {
+                                            label: "Reset",
+                                            value: "reset",
+                                        },
+                                    ]}
+                                    onChange={(value) =>
+                                        updateButton(
+                                            "buttonType",
+                                            value as
+                                            | "button"
+                                            | "submit"
+                                            | "reset"
+                                        )
+                                    }
+                                />
+
+                                <label className="flex cursor-pointer items-center justify-between gap-3 text-xs font-medium text-gray-600">
+                                    <span>
+                                        Disabled
+                                        <span className="ml-1 text-gray-400">
+                                            Prevents interaction in preview
+                                        </span>
+                                    </span>
+
+                                    <input
+                                        type="checkbox"
+                                        checked={
+                                            node.buttonDisabled ?? false
+                                        }
+                                        onChange={(event) =>
+                                            updateButton(
+                                                "buttonDisabled",
+                                                event.target.checked
+                                            )
+                                        }
+                                        className="h-4 w-4"
+                                    />
+                                </label>
+
+                                <p className="text-[11px] leading-4 text-gray-400">
+                                    Button type controls the generated HTML button behavior.
+                                    Disabled buttons cannot be activated in Preview.
+                                </p>
                             </InspectorSection>
                         )}
 

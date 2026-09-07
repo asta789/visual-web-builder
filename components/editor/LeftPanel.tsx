@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+
 import { NodeType } from "@/model/type";
 import { useEditorStore } from "@/store/editorStore";
 
@@ -46,15 +48,61 @@ const components: {
             type: "audio",
             label: "Audio",
         },
+        {
+            type: "divider",
+            label: "Divider",
+        },
+        {
+            type: "list",
+            label: "List",
+        },
+        {
+            type: "table",
+            label: "Table",
+        },
+        {
+            type: "input",
+            label: "Input",
+        },
+        {
+            type: "textarea",
+            label: "Textarea",
+        },
+        {
+            type: "select",
+            label: "Select",
+        },
+        {
+            type: "checkbox",
+            label: "Checkbox",
+        },
+        {
+            type: "radio",
+            label: "Radio Group",
+        },
+        {
+            type: "switch",
+            label: "Switch",
+        },
+        {
+            type: "card",
+            label: "Card",
+        },
+        {
+            type: "accordion",
+            label: "Accordion",
+        },
+
     ];
 
 export default function LeftPanel() {
     const addNode = useEditorStore(
         (state) => state.addNode
     );
+    const [isAddOpen, setIsAddOpen] = useState(true);
 
     return (
-        <aside className="flex w-64 shrink-0 flex-col border-r bg-white">
+        <aside className="flex h-full min-h-0 w-64 shrink-0 flex-col border-r bg-white">
             {/* ==================================================
                 HEADER
             ================================================== */}
@@ -75,42 +123,62 @@ export default function LeftPanel() {
                 COMPONENTS
             ================================================== */}
 
-            <div className="border-b p-3">
-                <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
-                    Add
-                </div>
+            <div className="shrink-0 border-b">
+                <button
+                    type="button"
+                    onClick={() => setIsAddOpen((open) => !open)}
+                    aria-expanded={isAddOpen}
+                    className="flex w-full items-center justify-between px-3 py-3 text-left hover:bg-gray-50"
+                >
+                    <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                        Add
+                    </span>
+                    <span
+                        aria-hidden="true"
+                        className={`text-sm text-gray-500 transition-transform ${isAddOpen ? "rotate-180" : ""
+                            }`}
+                    >
+                        ▾
+                    </span>
+                </button>
 
-                <div className="grid grid-cols-2 gap-2">
-                    {components.map(
-                        (component) => (
-                            <button
-                                key={component.type}
-                                type="button"
-                                onClick={() =>
-                                    addNode(
-                                        component.type
-                                    )
-                                }
-                                className="
-                                    rounded-md
-                                    border
-                                    p-2
-                                    text-xs
-                                    hover:bg-gray-50
-                                "
-                            >
-                                {component.label}
-                            </button>
-                        )
-                    )}
-                </div>
+                {isAddOpen && (
+                    <div className="max-h-72 overflow-y-auto px-3 pb-3 pr-2">
+                        <div className="grid grid-cols-2 gap-2">
+                            {components.map(
+                                (component) => (
+                                    <button
+                                        key={component.type}
+                                        type="button"
+                                        onClick={() =>
+                                            addNode(
+                                                component.type
+                                            )
+                                        }
+                                        className="
+                                            rounded-md
+                                            border
+                                            p-2
+                                            text-xs
+                                            hover:bg-gray-50
+                                        "
+                                    >
+                                        {component.label}
+                                    </button>
+                                )
+                            )}
+                        </div>
+                    </div>
+                )}
             </div>
 
             {/* ==================================================
                 LAYERS
             ================================================== */}
 
-            <LayersPanel />
+            <div className="min-h-0 flex-1 overflow-hidden">
+                <LayersPanel />
+            </div>
         </aside>
     );
 }

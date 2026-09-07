@@ -1,4 +1,9 @@
 import { moveNode as moveTreeNode } from "@/store/treeOperations";
+import {
+    createAccordionComposite,
+    createAccordionItem,
+} from "@/components/editor/accordion/AccordionModule";
+import { getSelectionTargetId } from "@/components/editor/composite/CompositeEditingLock";
 import { create } from "zustand";
 
 import { defaultProject } from "@/model/defaultProject";
@@ -178,6 +183,14 @@ interface EditorState {
     updateNode: (
         nodeId: string,
         updates: Partial<ProjectNode>
+    ) => void;
+
+    addAccordionItem: (
+        accordionId: string
+    ) => void;
+
+    deleteAccordionItem: (
+        itemId: string
     ) => void;
 
     updateNodeStyles: (
@@ -437,6 +450,9 @@ function createNode(
 
                 content: "Button",
 
+                buttonType: "button",
+                buttonDisabled: false,
+
                 styles: {
                     backgroundColor:
                         "#111111",
@@ -507,6 +523,306 @@ function createNode(
                     minHeight: "72px",
                     borderRadius: "8px",
                     backgroundColor: "#f3f4f6",
+                },
+            };
+
+        case "divider":
+            return {
+                ...baseNode,
+
+                name: "Divider",
+                dividerOrientation: "horizontal",
+                dividerThickness: 2,
+                dividerStyle: "solid",
+                dividerColor: "#d1d5db",
+                dividerAlign: "center",
+
+                styles: {
+                    width: "100%",
+                    height: "40px",
+                    minHeight: "40px",
+                },
+            };
+
+        case "list":
+            return {
+                ...baseNode,
+
+                name: "List",
+                listItems: [
+                    "First item",
+                    "Second item",
+                    "Third item",
+                ],
+                listOrdered: false,
+                listMarkerStyle: "disc",
+                listStart: 1,
+                listItemGap: 8,
+
+                styles: {
+                    width: "100%",
+                    minHeight: "96px",
+                    color: "#111111",
+                    fontSize: "16px",
+                    lineHeight: "1.5",
+                },
+            };
+
+        case "table":
+            return {
+                ...baseNode,
+
+                name: "Table",
+
+                tableData: [
+                    ["Name", "Role", "Status"],
+                    ["Alice", "Designer", "Active"],
+                    ["Bob", "Developer", "Active"],
+                    ["Carol", "Manager", "Pending"],
+                ],
+
+                tableHeader: true,
+                tableStriped: false,
+                tableBorderWidth: 1,
+                tableBorderStyle: "solid",
+                tableBorderColor: "#d1d5db",
+                tableCellPadding: 10,
+                tableCellAlign: "left",
+                tableCellVerticalAlign: "middle",
+                tableColumnWidths: ["33.33%", "33.33%", "33.34%"],
+
+                styles: {
+                    width: "100%",
+                    minHeight: "160px",
+                    color: "#111111",
+                    fontSize: "14px",
+                    lineHeight: "1.5",
+                },
+            };
+
+        case "input":
+            return {
+                ...baseNode,
+
+                name: "Input",
+
+                inputType: "text",
+                inputPlaceholder: "Enter text...",
+                inputValue: "",
+                inputName: "",
+                inputRequired: false,
+                inputDisabled: false,
+                inputReadOnly: false,
+                inputMin: "",
+                inputMax: "",
+                inputStep: "1",
+
+                styles: {
+                    width: "100%",
+                    minHeight: "44px",
+                    paddingTop: "10px",
+                    paddingRight: "12px",
+                    paddingBottom: "10px",
+                    paddingLeft: "12px",
+                    borderWidth: "1px",
+                    borderStyle: "solid",
+                    borderColor: "#d1d5db",
+                    borderRadius: "8px",
+                    backgroundColor: "#ffffff",
+                    color: "#111111",
+                    fontSize: "16px",
+                },
+            };
+
+        case "textarea":
+            return {
+                ...baseNode,
+
+                name: "Textarea",
+
+                textareaPlaceholder: "Write your message...",
+                textareaValue: "",
+                textareaName: "",
+                textareaRequired: false,
+                textareaDisabled: false,
+                textareaReadOnly: false,
+                textareaMinLength: 0,
+                textareaMaxLength: 0,
+                textareaRows: 5,
+                textareaResize: "vertical",
+
+                styles: {
+                    width: "100%",
+                    minHeight: "140px",
+                    paddingTop: "12px",
+                    paddingRight: "12px",
+                    paddingBottom: "12px",
+                    paddingLeft: "12px",
+                    borderWidth: "1px",
+                    borderStyle: "solid",
+                    borderColor: "#d1d5db",
+                    borderRadius: "8px",
+                    backgroundColor: "#ffffff",
+                    color: "#111111",
+                    fontSize: "16px",
+                    lineHeight: "1.5",
+                },
+            };
+
+        case "select":
+            return {
+                ...baseNode,
+
+                name: "Select",
+
+                selectOptions: [
+                    { label: "Option 1", value: "option-1" },
+                    { label: "Option 2", value: "option-2" },
+                    { label: "Option 3", value: "option-3" },
+                ],
+                selectValue: "",
+                selectName: "",
+                selectPlaceholder: "Select an option",
+                selectRequired: false,
+                selectDisabled: false,
+                selectMultiple: false,
+
+                styles: {
+                    width: "100%",
+                    minHeight: "44px",
+                    paddingTop: "10px",
+                    paddingRight: "12px",
+                    paddingBottom: "10px",
+                    paddingLeft: "12px",
+                    borderWidth: "1px",
+                    borderStyle: "solid",
+                    borderColor: "#d1d5db",
+                    borderRadius: "8px",
+                    backgroundColor: "#ffffff",
+                    color: "#111111",
+                    fontSize: "16px",
+                },
+            };
+
+        case "checkbox":
+            return {
+                ...baseNode,
+
+                name: "Checkbox",
+
+                checkboxLabel: "I agree to the terms",
+                checkboxValue: "on",
+                checkboxName: "",
+                checkboxChecked: false,
+                checkboxRequired: false,
+                checkboxDisabled: false,
+
+                styles: {
+                    width: "100%",
+                    minHeight: "40px",
+                    color: "#111111",
+                    fontSize: "16px",
+                },
+            };
+
+        case "radio":
+            return {
+                ...baseNode,
+
+                name: "Radio Group",
+
+                radioOptions: [
+                    {
+                        label: "Option 1",
+                        value: "option-1",
+                        checked: false,
+                    },
+                    {
+                        label: "Option 2",
+                        value: "option-2",
+                        checked: false,
+                    },
+                    {
+                        label: "Option 3",
+                        value: "option-3",
+                        checked: false,
+                    },
+                ],
+                radioName: "radio-group",
+                radioRequired: false,
+                radioDisabled: false,
+
+                styles: {
+                    width: "100%",
+                    minHeight: "40px",
+                    color: "#111111",
+                    fontSize: "16px",
+                },
+            };
+
+        case "card":
+            return {
+                ...baseNode,
+
+                name: "Card",
+                compositeEditingLocked: false,
+
+                children: [],
+
+                styles: {
+                    width: "100%",
+                    minHeight: "180px",
+                    paddingTop: "24px",
+                    paddingRight: "24px",
+                    paddingBottom: "24px",
+                    paddingLeft: "24px",
+                    borderWidth: "1px",
+                    borderStyle: "solid",
+                    borderColor: "#e5e7eb",
+                    borderRadius: "12px",
+                    backgroundColor: "#ffffff",
+                    boxShadow: "0 4px 12px rgba(0, 0, 0, 0.08)",
+                },
+            };
+
+        case "accordion":
+            return {
+                ...baseNode,
+                name: "Accordion",
+                children: [],
+                compositeEditingLocked: false,
+                accordionRole: "root",
+                accordionAllowMultiple: false,
+                accordionDefaultOpen: 0,
+                styles: {
+                    width: "100%",
+                    borderWidth: "1px",
+                    borderStyle: "solid",
+                    borderColor: "#e5e7eb",
+                    borderRadius: "10px",
+                    backgroundColor: "#ffffff",
+                    overflow: "hidden",
+                },
+            };
+
+        case "switch":
+            return {
+                ...baseNode,
+
+                name: "Switch",
+
+                switchLabel: "Enable notifications",
+                switchValue: "on",
+                switchName: "",
+                switchChecked: false,
+                switchRequired: false,
+                switchDisabled: false,
+
+                styles: {
+                    width: "100%",
+                    minHeight: "40px",
+                    color: "#111111",
+                    fontSize: "16px",
                 },
             };
 
@@ -604,7 +920,9 @@ function canContainChildren(
         node.type === "page" ||
         node.type === "section" ||
         node.type === "container" ||
-        node.type === "navbar"
+        node.type === "navbar" ||
+        node.type === "card" ||
+        node.type === "accordion"
     );
 }
 
@@ -773,22 +1091,35 @@ export const useEditorStore =
             selectNode: (
                 nodeId
             ) =>
-                set({
-                    selectedNodeId:
-                        nodeId,
+                set((state) => {
+                    const targetId = nodeId
+                        ? getSelectionTargetId(
+                            nodeId,
+                            state.project.nodes,
+                        )
+                        : nodeId;
 
-                    selectedNodeIds:
-                        nodeId
-                            ? [nodeId]
-                            : [],
+                    return {
+                        selectedNodeId:
+                            targetId,
+
+                        selectedNodeIds:
+                            targetId
+                                ? [targetId]
+                                : [],
+                    };
                 }),
 
             toggleNodeSelection: (
                 nodeId
             ) =>
                 set((state) => {
+                    const targetId = getSelectionTargetId(
+                        nodeId,
+                        state.project.nodes,
+                    );
                     const node =
-                        state.project.nodes[nodeId];
+                        state.project.nodes[targetId];
 
                     if (
                         !node ||
@@ -804,22 +1135,22 @@ export const useEditorStore =
                         );
 
                     const exists =
-                        current.includes(nodeId);
+                        current.includes(targetId);
 
                     const next = exists
                         ? current.filter(
-                            (id) => id !== nodeId
+                            (id) => id !== targetId
                         )
-                        : [...current, nodeId];
+                        : [...current, targetId];
 
                     return {
                         selectedNodeIds: next,
                         selectedNodeId:
                             next.length > 0
-                                ? nodeId === state.selectedNodeId &&
+                                ? targetId === state.selectedNodeId &&
                                     exists
                                     ? next[next.length - 1] ?? null
-                                    : nodeId
+                                    : targetId
                                 : null,
                     };
                 }),
@@ -2620,6 +2951,157 @@ export const useEditorStore =
                             childCount
                         );
 
+                    /*
+                     * Card is a composite builder preset. It is built from the
+                     * same existing node types used everywhere else in the
+                     * builder, so their existing Right Panel features remain
+                     * fully available.
+                     */
+                    let compositeNodes: Record<string, ProjectNode> = {};
+
+                    if (type === "card") {
+                        const imageNode = createNode("image", newNode.id, 0);
+                        const bodyNode = createNode("container", newNode.id, 1);
+                        const titleNode = createNode("text", bodyNode.id, 0);
+                        const descriptionNode = createNode("text", bodyNode.id, 1);
+                        const footerNode = createNode("container", bodyNode.id, 2);
+                        const ctaNode = createNode("button", footerNode.id, 0);
+
+                        Object.assign(newNode, {
+                            name: "Card",
+                            children: [imageNode.id, bodyNode.id],
+                            styles: {
+                                width: "100%",
+                                minHeight: "320px",
+                                paddingTop: "0",
+                                paddingRight: "0",
+                                paddingBottom: "0",
+                                paddingLeft: "0",
+                                borderWidth: "1px",
+                                borderStyle: "solid",
+                                borderColor: "#e5e7eb",
+                                borderRadius: "12px",
+                                backgroundColor: "#ffffff",
+                                boxShadow: "0 4px 12px rgba(0, 0, 0, 0.08)",
+                                overflow: "hidden",
+                                display: "flex",
+                                flexDirection: "column",
+                                gap: "0",
+                            },
+                        });
+
+                        Object.assign(imageNode, {
+                            name: "Card Image",
+                            content: "",
+                            styles: {
+                                width: "100%",
+                                height: "180px",
+                                minHeight: "180px",
+                                backgroundColor: "#f3f4f6",
+                                objectFit: "cover",
+                                objectPosition: "center",
+                            },
+                        });
+
+                        Object.assign(bodyNode, {
+                            name: "Card Body",
+                            children: [titleNode.id, descriptionNode.id, footerNode.id],
+                            styles: {
+                                width: "100%",
+                                paddingTop: "24px",
+                                paddingRight: "24px",
+                                paddingBottom: "24px",
+                                paddingLeft: "24px",
+                                display: "flex",
+                                flexDirection: "column",
+                                gap: "12px",
+                                flexGrow: "1",
+                            },
+                        });
+
+                        Object.assign(titleNode, {
+                            name: "Card Title",
+                            content: "Card Title",
+                            textElement: "h3",
+                            styles: {
+                                marginTop: "0",
+                                marginRight: "0",
+                                marginBottom: "0",
+                                marginLeft: "0",
+                                fontSize: "24px",
+                                fontWeight: "700",
+                                lineHeight: "1.25",
+                                color: "#111827",
+                            },
+                        });
+
+                        Object.assign(descriptionNode, {
+                            name: "Card Description",
+                            content: "Add a short description for this card.",
+                            textElement: "p",
+                            styles: {
+                                marginTop: "0",
+                                marginRight: "0",
+                                marginBottom: "0",
+                                marginLeft: "0",
+                                fontSize: "16px",
+                                lineHeight: "1.5",
+                                color: "#6b7280",
+                            },
+                        });
+
+                        Object.assign(footerNode, {
+                            name: "Card Footer",
+                            children: [ctaNode.id],
+                            styles: {
+                                width: "100%",
+                                marginTop: "8px",
+                                display: "flex",
+                                flexDirection: "row",
+                                alignItems: "center",
+                                gap: "12px",
+                            },
+                        });
+
+                        Object.assign(ctaNode, {
+                            name: "Card CTA",
+                            content: "Learn More",
+                            styles: {
+                                backgroundColor: "#111827",
+                                color: "#ffffff",
+                                paddingTop: "10px",
+                                paddingRight: "18px",
+                                paddingBottom: "10px",
+                                paddingLeft: "18px",
+                                borderRadius: "8px",
+                                fontSize: "14px",
+                                fontWeight: "600",
+                            },
+                        });
+
+                        compositeNodes = {
+                            [imageNode.id]: imageNode,
+                            [bodyNode.id]: bodyNode,
+                            [titleNode.id]: titleNode,
+                            [descriptionNode.id]: descriptionNode,
+                            [footerNode.id]: footerNode,
+                            [ctaNode.id]: ctaNode,
+                        };
+                    }
+
+                    if (type === "accordion") {
+                        const accordion = createAccordionComposite(
+                            newNode,
+                            createNode,
+                        );
+
+                        Object.assign(newNode, accordion.root);
+                        compositeNodes = {
+                            ...compositeNodes,
+                            ...accordion.nodes,
+                        };
+                    }
+
                     const updatedProject: Project = {
                         ...state.project,
 
@@ -2630,6 +3112,8 @@ export const useEditorStore =
 
                             [newNode.id]:
                                 newNode,
+
+                            ...compositeNodes,
 
                             [targetParentId]:
                             {
@@ -3909,6 +4393,207 @@ export const useEditorStore =
                             future: [],
                         };
                     }),
+
+            /* =================================================
+               ACCORDION ITEM MANAGEMENT
+            ================================================= */
+
+            addAccordionItem: (accordionId: string) =>
+                set((state) => {
+                    const accordion = state.project.nodes[accordionId];
+
+                    if (
+                        !accordion ||
+                        accordion.type !== "accordion" ||
+                        accordion.accordionRole !== "root"
+                    ) {
+                        return state;
+                    }
+
+                    const existingItems = accordion.children ?? [];
+                    const result = createAccordionItem(
+                        accordion.id,
+                        existingItems.length,
+                        createNode,
+                    );
+
+                    const nextChildren = [
+                        ...existingItems,
+                        result.item.id,
+                    ];
+
+                    const updatedNodes = {
+                        ...state.project.nodes,
+                        ...result.nodes,
+                        [accordion.id]: {
+                            ...accordion,
+                            children: nextChildren,
+                        },
+                    };
+
+                    // Keep the visual divider correct after appending an item.
+                    nextChildren.forEach((itemId, index) => {
+                        const item = updatedNodes[itemId];
+                        if (!item) return;
+                        updatedNodes[itemId] = {
+                            ...item,
+                            styles: {
+                                ...(item.styles ?? {}),
+                                borderBottomWidth:
+                                    index < nextChildren.length - 1 ? "1px" : "0",
+                                borderBottomStyle: "solid",
+                                borderBottomColor: "#e5e7eb",
+                            },
+                        };
+                    });
+
+                    const updatedProject: Project = {
+                        ...state.project,
+                        nodes: updatedNodes,
+                    };
+
+                    if (state.transactionActive) {
+                        return {
+                            project: updatedProject,
+                            transactionChanged: true,
+                        };
+                    }
+
+                    const past = pushHistory(state);
+
+                    return {
+                        project: updatedProject,
+                        past,
+                        future: [],
+                    };
+                }),
+
+            deleteAccordionItem: (itemId: string) =>
+                set((state) => {
+                    const item = state.project.nodes[itemId];
+
+                    if (
+                        !item ||
+                        item.accordionRole !== "item" ||
+                        !item.parentId
+                    ) {
+                        return state;
+                    }
+
+                    const accordion = state.project.nodes[item.parentId];
+
+                    if (
+                        !accordion ||
+                        accordion.type !== "accordion" ||
+                        accordion.accordionRole !== "root"
+                    ) {
+                        return state;
+                    }
+
+                    const existingItems = accordion.children ?? [];
+
+                    // Keep at least one item in every Accordion.
+                    if (existingItems.length <= 1) {
+                        return state;
+                    }
+
+                    const removedIndex = existingItems.indexOf(itemId);
+                    if (removedIndex === -1) {
+                        return state;
+                    }
+
+                    const descendants = collectDescendants(
+                        state.project.nodes,
+                        itemId,
+                    );
+
+                    const idsToDelete = [itemId, ...descendants];
+                    const updatedNodes = { ...state.project.nodes };
+
+                    idsToDelete.forEach((id) => {
+                        delete updatedNodes[id];
+                    });
+
+                    const nextChildren = existingItems.filter(
+                        (childId) => childId !== itemId,
+                    );
+
+                    updatedNodes[accordion.id] = {
+                        ...accordion,
+                        children: nextChildren,
+                        accordionDefaultOpen: Math.max(
+                            0,
+                            Math.min(
+                                nextChildren.length - 1,
+                                (() => {
+                                    const current = Number(
+                                        accordion.accordionDefaultOpen ?? 0,
+                                    ) || 0;
+                                    if (removedIndex < current) return current - 1;
+                                    if (removedIndex === current) {
+                                        return Math.min(current, nextChildren.length - 1);
+                                    }
+                                    return current;
+                                })(),
+                            ),
+                        ),
+                    };
+
+                    // Re-number only the item-level display names/dividers.
+                    nextChildren.forEach((childId, index) => {
+                        const nextItem = updatedNodes[childId];
+                        if (!nextItem) return;
+                        updatedNodes[childId] = {
+                            ...nextItem,
+                            name: `Accordion Item ${index + 1}`,
+                            styles: {
+                                ...(nextItem.styles ?? {}),
+                                borderBottomWidth:
+                                    index < nextChildren.length - 1 ? "1px" : "0",
+                                borderBottomStyle: "solid",
+                                borderBottomColor: "#e5e7eb",
+                            },
+                        };
+                    });
+
+                    const selectionDeleted =
+                        state.selectedNodeId === itemId ||
+                            state.selectedNodeId
+                            ? idsToDelete.includes(state.selectedNodeId)
+                            : false;
+
+                    const updatedProject: Project = {
+                        ...state.project,
+                        nodes: updatedNodes,
+                    };
+
+                    if (state.transactionActive) {
+                        return {
+                            project: updatedProject,
+                            selectedNodeId: selectionDeleted
+                                ? accordion.id
+                                : state.selectedNodeId,
+                            selectedNodeIds: selectionDeleted
+                                ? [accordion.id]
+                                : state.selectedNodeIds,
+                            transactionChanged: true,
+                        };
+                    }
+
+                    const past = pushHistory(state);
+
+                    return {
+                        project: updatedProject,
+                        selectedNodeId: selectionDeleted
+                            ? accordion.id
+                            : state.selectedNodeId,
+                        selectedNodeIds: selectionDeleted
+                            ? [accordion.id]
+                            : state.selectedNodeIds,
+                        past,
+                        future: [],
+                    };
+                }),
 
             /* =================================================
                DELETE NODE

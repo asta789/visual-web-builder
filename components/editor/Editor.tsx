@@ -364,6 +364,30 @@ function getSafeUrl(
 }
 
 /* =========================================================
+   INPUT TYPE VALIDATION
+========================================================= */
+
+function getSafeInputType(
+    value?: string
+): string {
+    const allowed = new Set([
+        "text",
+        "email",
+        "password",
+        "number",
+        "tel",
+        "url",
+        "search",
+        "date",
+        "time",
+    ]);
+
+    return value && allowed.has(value)
+        ? value
+        : "text";
+}
+
+/* =========================================================
    IMAGE SOURCE
 ========================================================= */
 
@@ -710,6 +734,10 @@ function renderPreviewNode(
             ? ` class="${animationClass}"`
             : "";
 
+    const accordionRoleAttribute = node.accordionRole
+        ? ` data-accordion-role="${escapeHtml(node.accordionRole)}"`
+        : "";
+
     const animationTriggerAttribute =
         hasAnimation &&
             (animationTrigger === "click" || animationTrigger === "scroll")
@@ -740,12 +768,29 @@ function renderPreviewNode(
     ===================================================== */
 
     if (node.type === "text") {
+        const allowedTextElements = new Set([
+            "p",
+            "h1",
+            "h2",
+            "h3",
+            "h4",
+            "h5",
+            "h6",
+            "blockquote",
+            "span",
+        ]);
+        const textElement =
+            node.textElement &&
+                allowedTextElements.has(node.textElement)
+                ? node.textElement
+                : "div";
+
         return `
-            <div${classAttribute}${animationTriggerAttribute}${focusableAttribute}${styleAttribute}>
+            <${textElement}${classAttribute}${animationTriggerAttribute}${focusableAttribute}${styleAttribute}>
                 ${escapeHtml(
             node.content ?? ""
         )}
-            </div>
+            </${textElement}>
         `;
     }
 
@@ -771,6 +816,403 @@ function renderPreviewNode(
     }
 
     /* =====================================================
+       TABLE
+    ===================================================== */
+
+    if (node.type === "table") {
+        const rows = node.tableData?.length
+            ? node.tableData
+            : [["Header 1", "Header 2"], ["Cell 1", "Cell 2"]];
+        const header = node.tableHeader ?? true;
+        const striped = node.tableStriped ?? false;
+        const borderWidth = Math.max(0, Number(node.tableBorderWidth ?? 1) || 0);
+        const borderStyle = node.tableBorderStyle || "solid";
+        const borderColor = node.tableBorderColor || "#d1d5db";
+        const cellPadding = Math.max(0, Number(node.tableCellPadding ?? 10) || 0);
+        const align = node.tableCellAlign || "left";
+        const verticalAlign = node.tableCellVerticalAlign || "middle";
+        const columnCount = Math.max(1, ...rows.map((row) => row.length));
+        const columnWidths = node.tableColumnWidths ?? [];
+
+        const tableStyle = [
+            "width:100%",
+            "border-collapse:collapse",
+            "table-layout:fixed",
+        ].join(";");
+
+        const cellBaseStyle = [
+            `padding:${cellPadding}px`,
+            `text-align:${align}`,
+            `vertical-align:${verticalAlign}`,
+            `border:${borderWidth}px ${borderStyle} ${escapeHtml(borderColor)}`,
+            "overflow-wrap:anywhere",
+        ].join(";");
+
+        const colgroup = columnWidths.length
+            ? `<colgroup>${Array.from({ length: columnCount }).map((_, index) =>
+                `<col style="width:${escapeHtml(columnWidths[index] || `${100 / columnCount}%`)}">`
+            ).join("")}</colgroup>`
+            : "";
+
+        return `
+            <div
+                ${classAttribute}
+                ${animationTriggerAttribute}
+                ${focusableAttribute}
+                ${styles
+                ? ` style="${styles};overflow-x:auto"`
+                : ` style="width:100%;overflow-x:auto"`}
+            >
+                <table style="${tableStyle}">
+                    ${colgroup}
+                    <tbody>
+                        ${rows.map((row, rowIndex) => {
+                    const isHeader = header && rowIndex === 0;
+                    const tag = isHeader ? "th" : "td";
+                    const cells = Array.from({ length: columnCount }).map((_, columnIndex) => {
+                        const stripedStyle =
+                            striped && !isHeader && rowIndex % 2 === 0
+                                ? "background-color:#f9fafb;"
+                                : "";
+                        const weight = isHeader ? "font-weight:600;" : "";
+                        return `<${tag} style="${cellBaseStyle};${stripedStyle}${weight}">${escapeHtml(row[columnIndex] ?? "")}</${tag}>`;
+                    }).join("");
+                    return `<tr>${cells}</tr>`;
+                }).join("")}
+                    </tbody>
+                </table>
+            </div>
+        `;
+    }
+
+    /* =====================================================
+       INPUT
+    ===================================================== */
+
+    if (node.type === "input") {
+        const inputType = getSafeInputType(node.inputType);
+        const placeholder = escapeHtml(
+            node.inputPlaceholder ?? ""
+        );
+        const value = escapeHtml(
+            node.inputValue ?? ""
+        );
+        const name = node.inputName
+            ? ` name="${escapeHtml(node.inputName)}"`
+            : "";
+        const required = node.inputRequired
+            ? " required"
+            : "";
+        const disabled = node.inputDisabled
+            ? " disabled"
+            : "";
+        const readOnly = node.inputReadOnly
+            ? " readonly"
+            : "";
+        const min =
+            inputType === "number" &&
+                node.inputMin
+                ? ` min="${escapeHtml(node.inputMin)}"`
+                : "";
+        const max =
+            inputType === "number" &&
+                node.inputMax
+                ? ` max="${escapeHtml(node.inputMax)}"`
+                : "";
+        const step =
+            inputType === "number" &&
+                node.inputStep
+                ? ` step="${escapeHtml(node.inputStep)}"`
+                : "";
+
+        return `
+            <input
+                type="${inputType}"
+                placeholder="${placeholder}"
+                value="${value}"
+                ${name}
+                ${required}
+                ${disabled}
+                ${readOnly}
+                ${min}
+                ${max}
+                ${step}
+                ${classAttribute}
+                ${animationTriggerAttribute}
+                ${focusableAttribute}
+                ${styleAttribute}
+            />
+        `;
+    }
+
+    /* =====================================================
+       TEXTAREA
+    ===================================================== */
+
+    if (node.type === "textarea") {
+        const placeholder = escapeHtml(node.textareaPlaceholder ?? "");
+        const value = escapeHtml(node.textareaValue ?? "");
+        const name = node.textareaName
+            ? ` name="${escapeHtml(node.textareaName)}"`
+            : "";
+        const required = node.textareaRequired ? " required" : "";
+        const disabled = node.textareaDisabled ? " disabled" : "";
+        const readOnly = node.textareaReadOnly ? " readonly" : "";
+        const minLength = node.textareaMinLength && node.textareaMinLength > 0
+            ? ` minlength="${node.textareaMinLength}"`
+            : "";
+        const maxLength = node.textareaMaxLength && node.textareaMaxLength > 0
+            ? ` maxlength="${node.textareaMaxLength}"`
+            : "";
+        const rows = Math.max(1, Math.min(50, node.textareaRows ?? 5));
+        const resize = node.textareaResize ?? "vertical";
+
+        const textareaStyleAttribute = styles
+            ? ` style="${styles};resize:${resize}"`
+            : ` style="resize:${resize}"`;
+
+        return `
+            <textarea
+                placeholder="${placeholder}"
+                ${name}
+                ${required}
+                ${disabled}
+                ${readOnly}
+                ${minLength}
+                ${maxLength}
+                rows="${rows}"
+                ${textareaStyleAttribute}
+                ${classAttribute}
+                ${animationTriggerAttribute}
+                ${focusableAttribute}
+            >${value}</textarea>
+        `;
+    }
+
+    /* =====================================================
+       SELECT
+    ===================================================== */
+
+    if (node.type === "select") {
+        const name = node.selectName
+            ? ` name="${escapeHtml(node.selectName)}"`
+            : "";
+        const required = node.selectRequired
+            ? " required"
+            : "";
+        const disabled = node.selectDisabled
+            ? " disabled"
+            : "";
+        const multiple = node.selectMultiple
+            ? " multiple"
+            : "";
+
+        const options = node.selectOptions ?? [];
+        const value = node.selectValue ?? "";
+        const placeholder = node.selectPlaceholder ?? "";
+
+        const optionMarkup = [
+            placeholder && !node.selectMultiple
+                ? `<option value="" disabled>${escapeHtml(placeholder)}</option>`
+                : "",
+            ...options.map((option) => `
+                <option
+                    value="${escapeHtml(option.value)}"
+                    ${option.value === value ? " selected" : ""}
+                >
+                    ${escapeHtml(option.label)}
+                </option>
+            `),
+        ].join("");
+
+        return `
+            <select
+                ${name}
+                ${required}
+                ${disabled}
+                ${multiple}
+                ${styleAttribute}
+                ${classAttribute}
+                ${animationTriggerAttribute}
+                ${focusableAttribute}
+            >
+                ${optionMarkup}
+            </select>
+        `;
+    }
+
+    /* =====================================================
+   CHECKBOX
+===================================================== */
+
+    if (node.type === "checkbox") {
+        const label = escapeHtml(
+            node.checkboxLabel ?? "Checkbox"
+        );
+
+        const value = escapeHtml(
+            node.checkboxValue ?? "on"
+        );
+
+        const name = node.checkboxName
+            ? ` name="${escapeHtml(node.checkboxName)}"`
+            : "";
+
+        const required = node.checkboxRequired
+            ? " required"
+            : "";
+
+        const disabled = node.checkboxDisabled
+            ? " disabled"
+            : "";
+
+        const checked = node.checkboxChecked
+            ? " checked"
+            : "";
+
+        const checkboxStyle = styles
+            ? `${styles};display:flex;align-items:center;gap:8px;box-sizing:border-box;cursor:${node.checkboxDisabled ? "not-allowed" : "pointer"}`
+            : `display:flex;align-items:center;gap:8px;box-sizing:border-box;cursor:${node.checkboxDisabled ? "not-allowed" : "pointer"}`;
+
+        return `
+        <label
+            ${classAttribute}
+            ${animationTriggerAttribute}
+            ${focusableAttribute}
+            style="${checkboxStyle}"
+        >
+            <input
+                type="checkbox"
+                value="${value}"
+                ${name}
+                ${required}
+                ${disabled}
+                ${checked}
+                style="width:18px;height:18px;flex-shrink:0;margin:0;cursor:${node.checkboxDisabled ? "not-allowed" : "pointer"};accent-color:currentColor"
+            />
+            <span>${label}</span>
+        </label>
+    `;
+    }
+
+    /* =====================================================
+       RADIO
+    ===================================================== */
+
+    if (node.type === "radio") {
+        const options = node.radioOptions?.length
+            ? node.radioOptions
+            : [{ label: "Option 1", value: "option-1", checked: false }];
+
+        const name = node.radioName
+            ? ` name="${escapeHtml(node.radioName)}"`
+            : "";
+
+        const required = node.radioRequired
+            ? " required"
+            : "";
+
+        const disabled = node.radioDisabled
+            ? " disabled"
+            : "";
+
+        const radioStyle = styles
+            ? `${styles};display:flex;flex-direction:column;gap:4px;box-sizing:border-box`
+            : "display:flex;flex-direction:column;gap:4px;box-sizing:border-box";
+
+        const optionMarkup = options.map((option, index) => `
+            <label
+                style="display:flex;align-items:center;gap:8px;width:100%;min-height:40px;box-sizing:border-box;cursor:${node.radioDisabled ? "not-allowed" : "pointer"}"
+            >
+                <input
+                    type="radio"
+                    value="${escapeHtml(option.value ?? "")}"
+                    ${name}
+                    ${required}
+                    ${disabled}
+                    ${option.checked ? " checked" : ""}
+                    style="width:18px;height:18px;flex-shrink:0;margin:0;cursor:${node.radioDisabled ? "not-allowed" : "pointer"};accent-color:currentColor"
+                />
+                <span>${escapeHtml(option.label ?? `Option ${index + 1}`)}</span>
+            </label>
+        `).join("");
+
+        return `
+        <div
+            ${classAttribute}
+            ${animationTriggerAttribute}
+            ${focusableAttribute}
+            style="${radioStyle}"
+        >
+            ${optionMarkup}
+        </div>
+    `;
+    }
+
+    /* =====================================================
+       SWITCH
+    ===================================================== */
+
+    if (node.type === "switch") {
+        const label = escapeHtml(
+            node.switchLabel ?? "Toggle"
+        );
+        const value = escapeHtml(
+            node.switchValue ?? "on"
+        );
+        const name = node.switchName
+            ? ` name="${escapeHtml(node.switchName)}"`
+            : "";
+        const required = node.switchRequired
+            ? " required"
+            : "";
+        const disabled = node.switchDisabled
+            ? " disabled"
+            : "";
+        const checked = node.switchChecked
+            ? " checked"
+            : "";
+
+        const switchStyle = styles
+            ? `${styles};display:flex;align-items:center;gap:10px;box-sizing:border-box;cursor:${node.switchDisabled ? "not-allowed" : "pointer"}`
+            : `display:flex;align-items:center;gap:10px;box-sizing:border-box;cursor:${node.switchDisabled ? "not-allowed" : "pointer"}`;
+
+        return `
+            <label
+                data-switch-wrapper="true"
+                ${classAttribute}
+                ${animationTriggerAttribute}
+                ${focusableAttribute}
+                style="${switchStyle}"
+            >
+                <span style="position:relative;display:inline-flex;width:42px;height:24px;flex:0 0 auto">
+                    <input
+                        type="checkbox"
+                        role="switch"
+                        value="${value}"
+                        ${name}
+                        ${required}
+                        ${disabled}
+                        ${checked}
+                        style="position:absolute;inset:0;width:100%;height:100%;margin:0;opacity:0;cursor:${node.switchDisabled ? "not-allowed" : "pointer"}"
+                    />
+                    <span
+                        data-switch-track="true"
+                        aria-hidden="true"
+                        style="position:absolute;inset:0;border-radius:999px;background-color:${node.switchChecked ? "currentColor" : "#d1d5db"};pointer-events:none;transition:background-color 150ms ease"
+                    >
+                        <span
+                            data-switch-thumb="true"
+                            style="position:absolute;top:3px;left:${node.switchChecked ? "21px" : "3px"};width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:left 150ms ease"
+                        ></span>
+                    </span>
+                </span>
+                <span>${label}</span>
+            </label>
+        `;
+    }
+
+    /* =====================================================
        BUTTON
     ===================================================== */
 
@@ -786,7 +1228,16 @@ function renderPreviewNode(
                 ? "_blank"
                 : "_self";
 
-        if (href) {
+        const buttonType =
+            node.buttonType === "submit" ||
+                node.buttonType === "reset"
+                ? node.buttonType
+                : "button";
+
+        const disabled =
+            node.buttonDisabled === true;
+
+        if (href && !disabled) {
             return `
                 <a
                     href="${escapeHtml(
@@ -801,6 +1252,7 @@ function renderPreviewNode(
                     ${animationTriggerAttribute}
                     ${focusableAttribute}
                     ${styleAttribute}
+                    aria-disabled="false"
                 >
                     ${escapeHtml(
                     node.content ??
@@ -812,16 +1264,21 @@ function renderPreviewNode(
 
         return `
             <button
-                type="button"
+                type="${buttonType}"
+                ${disabled ? "disabled" : ""}
                 ${classAttribute}
                 ${animationTriggerAttribute}
                 ${focusableAttribute}
                 ${styleAttribute}
+                ${href && disabled
+                ? `data-disabled-href="${escapeHtml(href)}"`
+                : ""
+            }
             >
                 ${escapeHtml(
-            node.content ??
-            "Button"
-        )}
+                node.content ??
+                "Button"
+            )}
             </button>
         `;
     }
@@ -914,6 +1371,137 @@ function renderPreviewNode(
     }
 
     /* =====================================================
+       DIVIDER
+    ===================================================== */
+
+    if (node.type === "divider") {
+        const orientation =
+            node.dividerOrientation === "vertical"
+                ? "vertical"
+                : "horizontal";
+        const thickness = Math.max(
+            1,
+            Number(node.dividerThickness ?? 2) || 1,
+        );
+        const dividerStyle =
+            node.dividerStyle === "dashed" ||
+                node.dividerStyle === "dotted" ||
+                node.dividerStyle === "double"
+                ? node.dividerStyle
+                : "solid";
+        const dividerColor = node.dividerColor || "#d1d5db";
+        const align = node.dividerAlign || "center";
+
+        const wrapperStyles = [
+            styles,
+            "display:flex",
+            orientation === "vertical"
+                ? `justify-content:${align === "left" ? "flex-start" : align === "right" ? "flex-end" : "center"}`
+                : `justify-content:${align === "top" ? "flex-start" : align === "bottom" ? "flex-end" : "center"}`,
+        ]
+            .filter(Boolean)
+            .join(";");
+
+        const lineStyles =
+            orientation === "vertical"
+                ? `width:${thickness}px;height:100%;border-left:${thickness}px ${dividerStyle} ${escapeHtml(dividerColor)};box-sizing:border-box;flex:0 0 auto`
+                : `width:100%;height:${thickness}px;border-top:${thickness}px ${dividerStyle} ${escapeHtml(dividerColor)};box-sizing:border-box;flex:0 0 auto`;
+
+        return `
+            <div
+                ${classAttribute}
+                ${animationTriggerAttribute}
+                ${focusableAttribute}
+                style="${wrapperStyles}"
+                aria-hidden="true"
+            >
+                <div style="${lineStyles}"></div>
+            </div>
+        `;
+    }
+
+    /* =====================================================
+       LIST
+    ===================================================== */
+
+    if (node.type === "list") {
+        const items =
+            node.listItems?.length
+                ? node.listItems
+                : ["List item"];
+
+        const ordered =
+            node.listOrdered ?? false;
+
+        const markerStyle =
+            node.listMarkerStyle ||
+            (ordered ? "decimal" : "disc");
+
+        const safeMarkerStyles = new Set([
+            "disc",
+            "circle",
+            "square",
+            "decimal",
+            "lower-alpha",
+            "upper-alpha",
+            "lower-roman",
+            "upper-roman",
+            "none",
+        ]);
+
+        const resolvedMarkerStyle =
+            safeMarkerStyles.has(markerStyle)
+                ? markerStyle
+                : ordered
+                    ? "decimal"
+                    : "disc";
+
+        const itemGap = Math.max(
+            0,
+            Number(node.listItemGap ?? 8) || 0,
+        );
+
+        const listTag = ordered ? "ol" : "ul";
+        const startAttribute =
+            ordered
+                ? ` start="${Math.max(
+                    1,
+                    Number(node.listStart ?? 1) || 1,
+                )}"`
+                : "";
+
+        const listStyle = [
+            "width:100%",
+            "box-sizing:border-box",
+            "margin:0",
+            `padding-left:${resolvedMarkerStyle === "none" ? "0" : "1.5em"}`,
+            `list-style-type:${resolvedMarkerStyle}`,
+            "list-style-position:outside",
+        ].join(";");
+
+        return `
+            <div
+                ${classAttribute}
+                ${animationTriggerAttribute}
+                ${focusableAttribute}
+                ${styleAttribute}
+            >
+                <${listTag}${startAttribute} style="${listStyle}">
+                    ${items
+                .map(
+                    (item, index) => `
+                                <li style="margin-top:${index === 0 ? "0" : `${itemGap}px`}">
+                                    ${escapeHtml(item || "List item")}
+                                </li>
+                            `,
+                )
+                .join("")}
+                </${listTag}>
+            </div>
+        `;
+    }
+
+    /* =====================================================
        IMAGE
     ===================================================== */
 
@@ -963,6 +1551,37 @@ function renderPreviewNode(
     }
 
     /* =====================================================
+       ACCORDION
+    ===================================================== */
+
+    if (node.type === "accordion") {
+        const children =
+            (node.children ?? [])
+                .map((childId) =>
+                    renderPreviewNode(
+                        project,
+                        childId,
+                        viewport,
+                    )
+                )
+                .join("");
+
+        return `
+            <div
+                ${classAttribute}
+                ${animationTriggerAttribute}
+                ${focusableAttribute}
+                ${styleAttribute}
+                data-accordion-root="true"
+                data-accordion-multiple="${node.accordionAllowMultiple ? "true" : "false"}"
+                data-accordion-default-open="${Math.max(0, Number(node.accordionDefaultOpen ?? 0) || 0)}"
+            >
+                ${children}
+            </div>
+        `;
+    }
+
+    /* =====================================================
        STRUCTURAL NODES
     ===================================================== */
 
@@ -970,7 +1589,8 @@ function renderPreviewNode(
         node.type === "page" ||
         node.type === "section" ||
         node.type === "container" ||
-        node.type === "navbar"
+        node.type === "navbar" ||
+        node.type === "card"
     ) {
         const children =
             (node.children ?? [])
@@ -985,7 +1605,7 @@ function renderPreviewNode(
                 .join("");
 
         return `
-            <div${classAttribute}${animationTriggerAttribute}${focusableAttribute}${styleAttribute}>
+            <div${classAttribute}${animationTriggerAttribute}${focusableAttribute}${styleAttribute}${accordionRoleAttribute}>
                 ${children}
             </div>
         `;
@@ -1112,6 +1732,10 @@ function createPreviewDocument(
                         sans-serif;
                 }
 
+                .vwb-accordion-content-hidden {
+                    display: none !important;
+                }
+
                 img {
                     display: block;
                     max-width: 100%;
@@ -1131,6 +1755,10 @@ function createPreviewDocument(
 
                 a {
                     text-decoration: none;
+                }
+
+                button:disabled {
+                    cursor: not-allowed;
                 }
 
                 /* =========================================
@@ -1181,12 +1809,65 @@ function createPreviewDocument(
                         element.volume = Math.min(1, Math.max(0, volume));
                     });
 
+                    document.querySelectorAll('[data-accordion-root="true"]').forEach(function (root) {
+                        var items = Array.from(root.querySelectorAll('[data-accordion-role="item"]'));
+                        var allowMultiple = root.getAttribute("data-accordion-multiple") === "true";
+                        var defaultOpen = Number(root.getAttribute("data-accordion-default-open"));
+                        if (!Number.isFinite(defaultOpen)) defaultOpen = 0;
+
+                        function setOpen(item, open) {
+                            var content = item.querySelector('[data-accordion-role="content"]');
+                            if (!content) return;
+                            content.classList.toggle("vwb-accordion-content-hidden", !open);
+                            item.setAttribute("data-accordion-open", open ? "true" : "false");
+                        }
+
+                        items.forEach(function (item, index) {
+                            setOpen(item, index === defaultOpen);
+
+                            var header = item.querySelector('[data-accordion-role="header"]');
+                            if (!header) return;
+
+                            header.addEventListener("click", function () {
+                                var isOpen = item.getAttribute("data-accordion-open") === "true";
+
+                                if (allowMultiple) {
+                                    setOpen(item, !isOpen);
+                                    return;
+                                }
+
+                                items.forEach(function (otherItem) {
+                                    setOpen(otherItem, otherItem === item ? !isOpen : false);
+                                });
+                            });
+                        });
+                    });
+
                     document.querySelectorAll("svg[data-icon-size]").forEach(function (element) {
                         var size = Number(element.getAttribute("data-icon-size")) || 32;
                         var strokeWidth = Number(element.getAttribute("data-icon-stroke-width")) || 2;
                         element.setAttribute("width", String(size));
                         element.setAttribute("height", String(size));
                         element.setAttribute("stroke-width", String(strokeWidth));
+                    });
+
+                    document.querySelectorAll('[data-switch-wrapper="true"]').forEach(function (wrapper) {
+                        var input = wrapper.querySelector('input[role="switch"]');
+                        var track = wrapper.querySelector('[data-switch-track="true"]');
+                        var thumb = wrapper.querySelector('[data-switch-thumb="true"]');
+
+                        if (!(input instanceof HTMLInputElement)) return;
+                        if (!(track instanceof HTMLElement)) return;
+                        if (!(thumb instanceof HTMLElement)) return;
+
+                        function syncSwitch() {
+                            var enabled = input.checked;
+                            track.style.backgroundColor = enabled ? "currentColor" : "#d1d5db";
+                            thumb.style.left = enabled ? "21px" : "3px";
+                        }
+
+                        input.addEventListener("change", syncSwitch);
+                        syncSwitch();
                     });
                 });
 
